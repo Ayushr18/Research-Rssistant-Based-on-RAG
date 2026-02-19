@@ -18,114 +18,118 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// ─── HELPER: Pick the right fetcher based on source ───
+// ─── HELPER: Pick the right fetcher ───
 async function fetchBySource(query, maxResults, source) {
   switch (source) {
-    case "arxiv":
-      return await fetchPapers(query, maxResults);
-    case "semantic":
-      return await fetchFromSemanticScholar(query, maxResults);
-    case "pubmed":
-      return await fetchFromPubMed(query, maxResults);
-    case "chemrxiv":
-      return await fetchFromChemRxiv(query, maxResults);
-    default:
-      return await fetchPapers(query, maxResults);
+    case "arxiv":    return await fetchPapers(query, maxResults);
+    case "semantic": return await fetchFromSemanticScholar(query, maxResults);
+    case "pubmed":   return await fetchFromPubMed(query, maxResults);
+    case "chemrxiv": return await fetchFromChemRxiv(query, maxResults);
+    default:         return await fetchPapers(query, maxResults);
   }
 }
 
-// ─── HELPER: Process a single paper through the full pipeline ───
-async function processPaper(paper, source) {
-  const parsed = await downloadAndParsePDF(paper);
-  const chunks = chunkPaper(parsed);
+// ─── ROUTE 1: Ingest with SSE progress streaming ───
+app.get("/api/ingest-progress", async (req, res) => {
+  const { query, maxResults = 5, source = "arxiv" } = req.query;
 
-  if (chunks.length === 0) {
-    throw new Error("No usable content extracted");
+  if (!query) { res.status(400).json({ error: "Query is required" }); return; }
+
+  // SSE headers
+  res.setHeader("Content-Type",  "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection",    "keep-alive");
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.flushHeaders();
+
+  function send(data) {
+    res.write(`data: ${JSON.stringify(data)}\n\n`);
   }
 
-  const embedded = await embedChunks(chunks);
-  await storeChunks(embedded);
-
-  return {
-    id: paper.id,
-    title: paper.title,
-    authors: paper.authors,
-    published: paper.published,
-    abstract: paper.abstract,
-    pdfUrl: paper.pdfUrl,
-    source: paper.source || source,
-  };
-}
-
-// ─── ROUTE 1: Search and ingest papers ───
-app.post("/api/ingest", async (req, res) => {
   try {
-    const { query, maxResults = 5, source = "arxiv" } = req.body;
-
-    if (!query) {
-      return res.status(400).json({ error: "Query is required" });
-    }
-
     console.log(`\n📥 Ingesting from ${source.toUpperCase()}: "${query}"`);
 
-    // Step 1: Fetch paper metadata
-    const papers = await fetchBySource(query, maxResults, source);
+    // Step 1: Fetch
+    send({ type: "step", message: `Searching ${source} for "${query}"...`, progress: 5 });
+    const papers = await fetchBySource(query, Number(maxResults), source);
 
     if (papers.length === 0) {
-      return res.status(404).json({ error: "No papers found. Try a different search term or source." });
+      send({ type: "error", message: "No papers found. Try a different search term." });
+      res.end(); return;
     }
 
-    // Step 2: Process all papers in PARALLEL for speed
-    console.log(`\n⚡ Processing ${papers.length} papers in parallel...`);
-    const startTime = Date.now();
+    send({ type: "step", message: `Found ${papers.length} papers. Starting ingestion...`, progress: 15 });
 
-    const results = await Promise.allSettled(
-      papers.map(paper => processPaper(paper, source))
-    );
-
-    // Collect successful results, log failures
+    // Step 2: Process each paper sequentially for per-paper progress
     const processedPapers = [];
-    results.forEach((result, i) => {
-      if (result.status === "fulfilled") {
-        processedPapers.push(result.value);
-      } else {
-        console.log(`   ⚠️  Skipping "${papers[i].title.slice(0, 40)}..." — ${result.reason?.message}`);
-      }
-    });
+    const progressPerPaper = 70 / papers.length;
+    let currentProgress = 15;
 
-    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-    console.log(`\n✅ Processed ${processedPapers.length}/${papers.length} papers in ${elapsed}s`);
+    for (let i = 0; i < papers.length; i++) {
+      const paper = papers[i];
+      const shortTitle = paper.title?.length > 45
+        ? paper.title.slice(0, 45) + "..."
+        : paper.title;
+
+      try {
+        send({ type: "paper", message: `📄 (${i+1}/${papers.length}) Downloading: ${shortTitle}`, progress: Math.round(currentProgress), stage: "download" });
+        const parsed = await downloadAndParsePDF(paper);
+
+        send({ type: "paper", message: `✂️  (${i+1}/${papers.length}) Chunking: ${shortTitle}`, progress: Math.round(currentProgress + progressPerPaper * 0.3), stage: "chunk" });
+        const chunks = chunkPaper(parsed);
+        if (chunks.length === 0) throw new Error("No usable content");
+
+        send({ type: "paper", message: `🧠 (${i+1}/${papers.length}) Embedding: ${shortTitle}`, progress: Math.round(currentProgress + progressPerPaper * 0.6), stage: "embed" });
+        const embedded = await embedChunks(chunks);
+        await storeChunks(embedded);
+
+        processedPapers.push({
+          id: paper.id, title: paper.title, authors: paper.authors,
+          published: paper.published, abstract: paper.abstract,
+          pdfUrl: paper.pdfUrl, source: paper.source || source,
+        });
+
+        currentProgress += progressPerPaper;
+        send({ type: "paper_done", message: `✅ (${i+1}/${papers.length}) Indexed: ${shortTitle}`, progress: Math.round(currentProgress) });
+
+      } catch (err) {
+        console.log(`⚠️  Skipping — ${err.message}`);
+        send({ type: "paper_skip", message: `⚠️  (${i+1}/${papers.length}) Skipped: ${shortTitle}`, progress: Math.round(currentProgress) });
+        currentProgress += progressPerPaper;
+      }
+    }
 
     if (processedPapers.length === 0) {
-      return res.status(500).json({ error: "Could not process any papers. Please try again." });
+      send({ type: "error", message: "Could not process any papers. Please try again." });
+      res.end(); return;
     }
 
+    send({ type: "step", message: "Finalizing database...", progress: 95 });
     const stats = await getCollectionStats();
 
-    res.json({
-      success: true,
+    send({
+      type: "done",
+      message: `🎉 Successfully indexed ${processedPapers.length} of ${papers.length} papers!`,
+      progress: 100,
       papers: processedPapers,
       stats,
-      elapsed: `${elapsed}s`,
     });
 
   } catch (error) {
     console.error("Ingest error:", error);
-    res.status(500).json({ error: error.message });
+    send({ type: "error", message: error.message });
   }
+
+  res.end();
 });
 
 // ─── ROUTE 2: Ask a question ───
 app.post("/api/ask", async (req, res) => {
   try {
     const { question } = req.body;
-
-    if (!question) {
-      return res.status(400).json({ error: "Question is required" });
-    }
+    if (!question) return res.status(400).json({ error: "Question is required" });
 
     console.log(`\n❓ Question: "${question}"`);
-
     const relevantChunks = await retrieveRelevantChunks(question, 5);
 
     if (relevantChunks.length === 0) {
@@ -133,7 +137,6 @@ app.post("/api/ask", async (req, res) => {
     }
 
     const { answer, citations } = await generateAnswer(question, relevantChunks);
-
     res.json({ success: true, answer, citations });
 
   } catch (error) {
@@ -142,7 +145,7 @@ app.post("/api/ask", async (req, res) => {
   }
 });
 
-// ─── ROUTE 3: Get database stats ───
+// ─── ROUTE 3: Get stats ───
 app.get("/api/stats", async (req, res) => {
   try {
     const stats = await getCollectionStats();
@@ -162,7 +165,7 @@ app.delete("/api/clear", async (req, res) => {
   }
 });
 
-const PORT = 3001;
+const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log(`\n🚀 Server running at http://localhost:${PORT}`);
   console.log(`   Sources available: ArXiv, Semantic Scholar, PubMed, ChemRxiv`);
