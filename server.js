@@ -25,9 +25,9 @@ const app = express();
 
 app.use(cors({
   origin: [
-    "http://localhost:5173",
+   "http://localhost:5173",
     "http://localhost:3000",
-    "https://research-rssistant-based-on-rag.vercel.app",
+    "https://researchminds.vercel.app",
   ],
   methods: ["GET", "POST", "DELETE"],
 }));
