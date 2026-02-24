@@ -69,10 +69,14 @@ ANSWER (with citations):`;
     authors: chunk.source.authors,
     published: chunk.source.published,
     pdfUrl: chunk.source.pdfUrl,
-    abstract: chunk.source.abstract || null,  // ← included for hover popup
+    abstract: chunk.source.abstract || null,
   }));
 
-  console.log(`   ✅ Answer generated!`);
+  // Calculate confidence score from average chunk similarity scores
+  const avgScore = retrievedChunks.reduce((sum, c) => sum + (c.score || 0), 0) / retrievedChunks.length;
+  const confidence = Math.round(avgScore * 100);
 
-  return { answer, citations };
+  console.log(`   ✅ Answer generated! Confidence: ${confidence}%`);
+
+  return { answer, citations, confidence };
 }

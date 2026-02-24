@@ -230,15 +230,15 @@ app.post("/api/ask", async (req, res) => {
     if (!question) return res.status(400).json({ error: "Question is required" });
 
     console.log(`\n❓ Question: "${question}"`);
-    // Reduced from 5 to 3 — stays within Groq free tier TPM limits
     const relevantChunks = await retrieveRelevantChunks(question, 3);
 
     if (relevantChunks.length === 0) {
       return res.status(404).json({ error: "No relevant papers found. Please ingest papers first." });
     }
 
-    const { answer, citations } = await generateAnswer(question, relevantChunks);
-    res.json({ success: true, answer, citations });
+    // ✅ FIX: destructure confidence and send it in response
+    const { answer, citations, confidence } = await generateAnswer(question, relevantChunks);
+    res.json({ success: true, answer, citations, confidence });
 
   } catch (error) {
     console.error("Ask error:", error);

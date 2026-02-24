@@ -385,8 +385,28 @@ function ChatMessage({ message, isLast }) {
                 </div>
               ) : (
                 <>
-                  <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "10px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "10px", flexWrap: "wrap" }}>
                     <Badge color="green">Grounded</Badge>
+                    {message.confidence != null && (() => {
+                      const c = message.confidence;
+                      const isHigh   = c >= 75;
+                      const isMedium = c >= 50 && c < 75;
+                      const color  = isHigh ? "#4ade80" : isMedium ? "#f0a500" : "#f87171";
+                      const label  = isHigh ? "High Confidence" : isMedium ? "Medium Confidence" : "Low Confidence";
+                      const dot    = isHigh ? "🟢" : isMedium ? "🟡" : "🔴";
+                      return (
+                        <span title={`Relevance score: ${c}%`} style={{
+                          display: "inline-flex", alignItems: "center", gap: "4px",
+                          background: `${color}18`,
+                          border: `1px solid ${color}40`,
+                          borderRadius: "20px", padding: "2px 10px",
+                          fontSize: "11px", fontFamily: "'JetBrains Mono'",
+                          color, cursor: "help",
+                        }}>
+                          {dot} {label} · {c}%
+                        </span>
+                      );
+                    })()}
                     <span style={{ color: "var(--text-muted)", fontSize: "11px", fontFamily: "'JetBrains Mono'" }}>
                       {message.citations?.length || 0} sources
                     </span>
@@ -696,7 +716,7 @@ export default function App() {
       // Replace the loading AI message with the real answer
       setMessages(prev => prev.map((m, i) =>
         i === prev.length - 1
-          ? { role: "ai", answer: res.data.answer, citations: res.data.citations }
+          ? { role: "ai", answer: res.data.answer, citations: res.data.citations, confidence: res.data.confidence }
           : m
       ));
     } catch (err) {
