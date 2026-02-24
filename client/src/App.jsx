@@ -511,15 +511,32 @@ export default function App() {
   const [isIngesting, setIsIngesting]   = useState(false);
   const [ingestDone, setIngestDone]     = useState(false);
   const [ingestError, setIngestError]   = useState(false);
+
+  // cold-start banner: null | "waking" | "offline"
+  const [serverStatus, setServerStatus] = useState(null);
+
   const eventSourceRef = useRef(null);
   const chatEndRef     = useRef(null);
   const inputRef       = useRef(null);
+  const wakeTimerRef   = useRef(null);
 
-  useEffect(() => { fetchStats(); }, []);
+  useEffect(() => {
+    fetchStats();
+    return () => clearTimeout(wakeTimerRef.current);
+  }, []);
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
 
   async function fetchStats() {
-    try { const res = await axios.get(`${API}/stats`); setStats(res.data); } catch {}
+    wakeTimerRef.current = setTimeout(() => setServerStatus("waking"), 2000);
+    try {
+      const res = await axios.get(`${API}/stats`);
+      clearTimeout(wakeTimerRef.current);
+      setServerStatus(null);
+      setStats(res.data);
+    } catch {
+      clearTimeout(wakeTimerRef.current);
+      setServerStatus("offline");
+    }
   }
 
   function handleIngest() {
@@ -910,6 +927,46 @@ export default function App() {
             </div>
           </div>
         </header>
+
+        {/* ── COLD START BANNER ── */}
+        {serverStatus === "waking" && (
+          <div style={{
+            width: "100%",
+            background: "linear-gradient(90deg, rgba(240,165,0,0.12), rgba(240,165,0,0.06))",
+            borderBottom: "1px solid rgba(240,165,0,0.25)",
+            padding: "10px 40px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "10px",
+            animation: "fadeSlideIn 0.4s ease both",
+          }}>
+            <Loader2 size={13} color="var(--gold)" style={{ animation: "spin 1s linear infinite", flexShrink: 0 }} />
+            <span style={{ fontFamily: "'JetBrains Mono'", fontSize: "12px", color: "var(--gold)" }}>
+              Server is waking up — this may take up to 30 seconds on first visit...
+            </span>
+          </div>
+        )}
+        {serverStatus === "offline" && (
+          <div style={{
+            width: "100%",
+            background: "rgba(248,113,113,0.08)",
+            borderBottom: "1px solid rgba(248,113,113,0.25)",
+            padding: "10px 40px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "10px",
+          }}>
+            <AlertCircle size={13} color="#f87171" style={{ flexShrink: 0 }} />
+            <span style={{ fontFamily: "'JetBrains Mono'", fontSize: "12px", color: "#f87171" }}>
+              Server appears to be offline. Please try refreshing the page.
+            </span>
+            <button onClick={fetchStats} style={{ background: "rgba(248,113,113,0.15)", border: "1px solid rgba(248,113,113,0.3)", borderRadius: "6px", color: "#f87171", fontSize: "11px", padding: "3px 10px", cursor: "pointer", fontFamily: "'JetBrains Mono'" }}>
+              Retry
+            </button>
+          </div>
+        )}
 
         <main className="main-content">
 
