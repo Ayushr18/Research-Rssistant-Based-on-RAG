@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import axios from "axios";
+import { jsPDF } from "jspdf";
 import {
   Search, BookOpen, Brain, Loader2, AlertCircle,
   ChevronRight, FileText, Users, Calendar,
@@ -588,6 +589,149 @@ export default function App() {
     setMessages([]);
   }
 
+  function exportToPDF() {
+    const doc = new jsPDF({ unit: "mm", format: "a4" });
+    const pageW = doc.internal.pageSize.getWidth();
+    const pageH = doc.internal.pageSize.getHeight();
+    const margin = 20;
+    const contentW = pageW - margin * 2;
+    let y = margin;
+
+    function checkNewPage(needed = 10) {
+      if (y + needed > pageH - margin) {
+        doc.addPage();
+        y = margin;
+      }
+    }
+
+    function wrappedText(text, x, startY, maxWidth, lineHeight = 6) {
+      const lines = doc.splitTextToSize(text, maxWidth);
+      lines.forEach(line => {
+        checkNewPage(lineHeight);
+        doc.text(line, x, y);
+        y += lineHeight;
+      });
+    }
+
+    // ── HEADER ──
+    doc.setFillColor(10, 11, 15);
+    doc.rect(0, 0, pageW, 28, "F");
+    doc.setFontSize(18);
+    doc.setTextColor(240, 165, 0);
+    doc.setFont("helvetica", "bold");
+    doc.text("ResearchMind", margin, 17);
+    doc.setFontSize(9);
+    doc.setTextColor(144, 150, 168);
+    doc.setFont("helvetica", "normal");
+    doc.text("AI Research Assistant — Exported Report", margin + 52, 17);
+    const dateStr = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+    doc.text(dateStr, pageW - margin, 17, { align: "right" });
+    y = 36;
+
+    // ── TITLE ──
+    doc.setFontSize(14);
+    doc.setTextColor(255, 255, 255);
+    doc.setFont("helvetica", "bold");
+    doc.text("Research Q&A Session", margin, y);
+    y += 5;
+    doc.setDrawColor(240, 165, 0);
+    doc.setLineWidth(0.5);
+    doc.line(margin, y, pageW - margin, y);
+    y += 10;
+
+    // ── MESSAGES ──
+    const aiMessages = messages.filter(m => m.role === "ai" && (m.answer || m.error));
+    const qaPairs = [];
+    for (let i = 0; i < messages.length; i++) {
+      if (messages[i].role === "user" && messages[i + 1]?.role === "ai") {
+        qaPairs.push({ question: messages[i].question, ai: messages[i + 1] });
+      }
+    }
+
+    qaPairs.forEach((pair, idx) => {
+      checkNewPage(20);
+
+      // Question block
+      doc.setFillColor(240, 165, 0, 0.1);
+      doc.setDrawColor(240, 165, 0);
+      doc.setLineWidth(0.4);
+
+      doc.setFontSize(9);
+      doc.setTextColor(240, 165, 0);
+      doc.setFont("helvetica", "bold");
+      doc.text(`Q${idx + 1}`, margin, y);
+      y += 1;
+
+      doc.setFontSize(11);
+      doc.setTextColor(230, 230, 230);
+      doc.setFont("helvetica", "bold");
+      wrappedText(pair.question, margin, y, contentW, 6);
+      y += 4;
+
+      // Answer block
+      if (pair.ai.answer) {
+        doc.setFontSize(9);
+        doc.setTextColor(144, 150, 168);
+        doc.setFont("helvetica", "bold");
+        doc.text("AI ANSWER", margin, y);
+        y += 5;
+
+        doc.setFontSize(10);
+        doc.setTextColor(200, 200, 200);
+        doc.setFont("helvetica", "normal");
+        wrappedText(pair.ai.answer, margin, y, contentW, 5.5);
+        y += 4;
+
+        // Citations
+        if (pair.ai.citations?.length > 0) {
+          checkNewPage(10);
+          doc.setFontSize(8);
+          doc.setTextColor(240, 165, 0);
+          doc.setFont("helvetica", "bold");
+          doc.text("SOURCES", margin, y);
+          y += 5;
+
+          pair.ai.citations.forEach(c => {
+            checkNewPage(10);
+            doc.setFontSize(8);
+            doc.setTextColor(144, 150, 168);
+            doc.setFont("helvetica", "normal");
+            const citLine = `[${c.number}] ${c.title} — ${c.authors?.slice(0, 60) || ""}${c.authors?.length > 60 ? "..." : ""} (${c.published})`;
+            wrappedText(citLine, margin + 3, y, contentW - 3, 5);
+          });
+          y += 3;
+        }
+      } else if (pair.ai.error) {
+        doc.setFontSize(9);
+        doc.setTextColor(248, 113, 113);
+        doc.text(`Error: ${pair.ai.error}`, margin, y);
+        y += 6;
+      }
+
+      // Divider between Q&A pairs
+      if (idx < qaPairs.length - 1) {
+        checkNewPage(8);
+        y += 2;
+        doc.setDrawColor(42, 45, 58);
+        doc.setLineWidth(0.3);
+        doc.line(margin, y, pageW - margin, y);
+        y += 8;
+      }
+    });
+
+    // ── FOOTER on each page ──
+    const totalPages = doc.internal.getNumberOfPages();
+    for (let p = 1; p <= totalPages; p++) {
+      doc.setPage(p);
+      doc.setFontSize(8);
+      doc.setTextColor(60, 63, 80);
+      doc.text(`researchminds.vercel.app`, margin, pageH - 8);
+      doc.text(`Page ${p} of ${totalPages}`, pageW - margin, pageH - 8, { align: "right" });
+    }
+
+    doc.save(`ResearchMind_Report_${Date.now()}.pdf`);
+  }
+
   async function handleClear() {
     if (!confirm("Clear all ingested papers from the database?")) return;
     try {
@@ -895,12 +1039,20 @@ export default function App() {
                     </div>
                   </div>
                   {messages.length > 0 && (
-                    <button onClick={handleClearChat} style={{ display: "flex", alignItems: "center", gap: "5px", padding: "5px 10px", background: "transparent", border: "1px solid var(--border)", borderRadius: "6px", color: "var(--text-muted)", fontSize: "11px", cursor: "pointer", fontFamily: "'JetBrains Mono'", transition: "all 0.2s" }}
-                      onMouseEnter={e => { e.currentTarget.style.borderColor = "rgba(248,113,113,0.3)"; e.currentTarget.style.color = "#f87171"; }}
-                      onMouseLeave={e => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.color = "var(--text-muted)"; }}
-                    >
-                      <Trash2 size={10} /> Clear chat
-                    </button>
+                    <div style={{ display: "flex", gap: "8px" }}>
+                      <button onClick={exportToPDF} style={{ display: "flex", alignItems: "center", gap: "5px", padding: "5px 10px", background: "rgba(240,165,0,0.08)", border: "1px solid rgba(240,165,0,0.3)", borderRadius: "6px", color: "var(--gold)", fontSize: "11px", cursor: "pointer", fontFamily: "'JetBrains Mono'", transition: "all 0.2s" }}
+                        onMouseEnter={e => e.currentTarget.style.background = "rgba(240,165,0,0.15)"}
+                        onMouseLeave={e => e.currentTarget.style.background = "rgba(240,165,0,0.08)"}
+                      >
+                        <Download size={10} /> Export PDF
+                      </button>
+                      <button onClick={handleClearChat} style={{ display: "flex", alignItems: "center", gap: "5px", padding: "5px 10px", background: "transparent", border: "1px solid var(--border)", borderRadius: "6px", color: "var(--text-muted)", fontSize: "11px", cursor: "pointer", fontFamily: "'JetBrains Mono'", transition: "all 0.2s" }}
+                        onMouseEnter={e => { e.currentTarget.style.borderColor = "rgba(248,113,113,0.3)"; e.currentTarget.style.color = "#f87171"; }}
+                        onMouseLeave={e => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.color = "var(--text-muted)"; }}
+                      >
+                        <Trash2 size={10} /> Clear chat
+                      </button>
+                    </div>
                   )}
                 </div>
 
