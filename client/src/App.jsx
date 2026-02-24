@@ -155,13 +155,63 @@ function PaperCard({ paper, index }) {
   );
 }
 
-function CitationCard({ citation }) {
+// ─── HOVER SUMMARY POPUP ───
+function SummaryPopup({ abstract }) {
+  if (!abstract || abstract === "Uploaded PDF document") return null;
   return (
-    <div className="citation-card" style={{
-      background: "var(--bg-secondary)", border: "1px solid var(--border)",
-      borderLeft: "3px solid var(--gold)", borderRadius: "8px", padding: "14px 18px",
-      display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px",
+    <div style={{
+      position: "absolute", bottom: "calc(100% + 10px)", left: 0,
+      width: "340px", maxWidth: "90vw",
+      background: "#16181f",
+      border: "1px solid rgba(240,165,0,0.3)",
+      borderRadius: "12px", padding: "16px",
+      boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
+      zIndex: 999,
+      animation: "fadeSlideIn 0.2s ease both",
+      pointerEvents: "none",
     }}>
+      <p style={{
+        color: "var(--gold)", fontSize: "10px", fontFamily: "'JetBrains Mono'",
+        letterSpacing: "0.08em", marginBottom: "8px",
+      }}>ABSTRACT</p>
+      <p style={{
+        color: "var(--text-secondary)", fontSize: "12px",
+        fontFamily: "'DM Sans'", lineHeight: 1.7,
+        display: "-webkit-box", WebkitLineClamp: 6,
+        WebkitBoxOrient: "vertical", overflow: "hidden",
+      }}>
+        {abstract}
+      </p>
+      {/* Little arrow pointing down */}
+      <div style={{
+        position: "absolute", bottom: "-6px", left: "24px",
+        width: "10px", height: "10px",
+        background: "#16181f",
+        border: "1px solid rgba(240,165,0,0.3)",
+        borderTop: "none", borderLeft: "none",
+        transform: "rotate(45deg)",
+      }} />
+    </div>
+  );
+}
+
+function CitationCard({ citation }) {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <div
+      className="citation-card"
+      style={{
+        background: "var(--bg-secondary)", border: "1px solid var(--border)",
+        borderLeft: "3px solid var(--gold)", borderRadius: "8px", padding: "14px 18px",
+        display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px",
+        position: "relative", transition: "border-color 0.2s",
+      }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      {/* Hover popup */}
+      {hovered && citation.abstract && <SummaryPopup abstract={citation.abstract} />}
+
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px", flexWrap: "wrap" }}>
           <Badge color="gold">[{citation.number}]</Badge>
@@ -171,6 +221,12 @@ function CitationCard({ citation }) {
           <span style={{ color: "var(--text-muted)", fontSize: "11px" }}><Users size={10} style={{ display: "inline", marginRight: "4px" }} />{citation.authors?.slice(0, 50)}</span>
           <span style={{ color: "var(--text-muted)", fontSize: "11px" }}><Calendar size={10} style={{ display: "inline", marginRight: "4px" }} />{citation.published}</span>
         </div>
+        {hovered && citation.abstract && (
+          <p style={{
+            color: "var(--text-muted)", fontSize: "11px", fontFamily: "'JetBrains Mono'",
+            marginTop: "6px", letterSpacing: "0.04em",
+          }}>Hover to preview abstract ↑</p>
+        )}
       </div>
       {isRealPdf(citation.pdfUrl) ? (
         <a href={citation.pdfUrl} target="_blank" rel="noreferrer" style={{
@@ -189,6 +245,88 @@ function CitationCard({ citation }) {
           border: "1px solid var(--border)", borderRadius: "6px", whiteSpace: "nowrap",
           cursor: "default", flexShrink: 0,
         }}>Abstract only</span>
+      )}
+    </div>
+  );
+}
+
+// ─── CHAT CITATION CARD WITH HOVER POPUP ───
+function ChatCitationCard({ citation }) {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <div
+      style={{
+        display: "flex", alignItems: "center", gap: "10px",
+        padding: "8px 12px",
+        background: "var(--bg-secondary)", borderRadius: "8px",
+        border: `1px solid ${hovered ? "rgba(240,165,0,0.4)" : "var(--border)"}`,
+        borderLeft: "2px solid var(--gold)",
+        position: "relative",
+        transition: "border-color 0.2s",
+        cursor: "default",
+      }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      {/* Hover popup */}
+      {hovered && citation.abstract && (
+        <div style={{
+          position: "absolute", bottom: "calc(100% + 8px)", left: 0,
+          width: "320px", maxWidth: "80vw",
+          background: "#16181f",
+          border: "1px solid rgba(240,165,0,0.35)",
+          borderRadius: "10px", padding: "14px",
+          boxShadow: "0 8px 32px rgba(0,0,0,0.6)",
+          zIndex: 999,
+          animation: "fadeSlideIn 0.2s ease both",
+          pointerEvents: "none",
+        }}>
+          <p style={{ color: "var(--gold)", fontSize: "10px", fontFamily: "'JetBrains Mono'", letterSpacing: "0.08em", marginBottom: "7px" }}>
+            ABSTRACT
+          </p>
+          <p style={{
+            color: "var(--text-secondary)", fontSize: "12px",
+            fontFamily: "'DM Sans'", lineHeight: 1.7,
+            display: "-webkit-box", WebkitLineClamp: 5,
+            WebkitBoxOrient: "vertical", overflow: "hidden",
+          }}>
+            {citation.abstract}
+          </p>
+          <div style={{
+            position: "absolute", bottom: "-6px", left: "20px",
+            width: "10px", height: "10px",
+            background: "#16181f",
+            border: "1px solid rgba(240,165,0,0.35)",
+            borderTop: "none", borderLeft: "none",
+            transform: "rotate(45deg)",
+          }} />
+        </div>
+      )}
+
+      <span style={{ color: "var(--gold)", fontSize: "11px", fontFamily: "'JetBrains Mono'", flexShrink: 0 }}>
+        [{citation.number}]
+      </span>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <p style={{
+          color: "var(--text-primary)", fontSize: "12px",
+          fontFamily: "'DM Sans'", fontWeight: 600,
+          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+        }}>
+          {citation.title}
+        </p>
+        <p style={{ color: "var(--text-muted)", fontSize: "11px" }}>
+          {citation.published}
+          {citation.abstract && <span style={{ color: "rgba(240,165,0,0.5)", marginLeft: "8px" }}>· hover to preview</span>}
+        </p>
+      </div>
+      {isRealPdf(citation.pdfUrl) && (
+        <a href={citation.pdfUrl} target="_blank" rel="noreferrer"
+          style={{ color: "var(--text-muted)", flexShrink: 0 }}
+          onMouseEnter={e => e.currentTarget.style.color = "var(--gold)"}
+          onMouseLeave={e => e.currentTarget.style.color = "var(--text-muted)"}
+        >
+          <ExternalLink size={12} />
+        </a>
       )}
     </div>
   );
@@ -268,35 +406,7 @@ function ChatMessage({ message, isLast }) {
                       </p>
                       <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
                         {message.citations.map(citation => (
-                          <div key={citation.number} style={{
-                            display: "flex", alignItems: "center", gap: "10px",
-                            padding: "8px 12px",
-                            background: "var(--bg-secondary)", borderRadius: "8px",
-                            border: "1px solid var(--border)",
-                            borderLeft: "2px solid var(--gold)",
-                          }}>
-                            <span style={{ color: "var(--gold)", fontSize: "11px", fontFamily: "'JetBrains Mono'", flexShrink: 0 }}>
-                              [{citation.number}]
-                            </span>
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                              <p style={{
-                                color: "var(--text-primary)", fontSize: "12px",
-                                fontFamily: "'DM Sans'", fontWeight: 600,
-                                overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-                              }}>
-                                {citation.title}
-                              </p>
-                              <p style={{ color: "var(--text-muted)", fontSize: "11px" }}>{citation.published}</p>
-                            </div>
-                            {isRealPdf(citation.pdfUrl) && (
-                              <a href={citation.pdfUrl} target="_blank" rel="noreferrer" style={{ color: "var(--text-muted)", flexShrink: 0 }}
-                                onMouseEnter={e => e.currentTarget.style.color = "var(--gold)"}
-                                onMouseLeave={e => e.currentTarget.style.color = "var(--text-muted)"}
-                              >
-                                <ExternalLink size={12} />
-                              </a>
-                            )}
-                          </div>
+                          <ChatCitationCard key={citation.number} citation={citation} />
                         ))}
                       </div>
                     </div>
