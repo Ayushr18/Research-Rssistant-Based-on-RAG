@@ -48,7 +48,7 @@ ANSWER (with citations):`;
 
   // Step 3: Call Groq API
   const response = await groq.chat.completions.create({
-    model: "llama-3.3-70b-versatile",  // Higher TPM limit than llama-3.1-8b-instant
+    model: "llama-3.3-70b-versatile",
     messages: [
       {
         role: "user",
@@ -62,13 +62,14 @@ ANSWER (with citations):`;
   // Step 4: Extract the answer
   const answer = response.choices[0].message.content;
 
-  // Step 5: Build citations list
+  // Step 5: Build citations list — include abstract for hover preview
   const citations = retrievedChunks.map((chunk, index) => ({
     number: index + 1,
     title: chunk.source.title,
     authors: chunk.source.authors,
     published: chunk.source.published,
     pdfUrl: chunk.source.pdfUrl,
+    abstract: chunk.source.abstract || null,  // ← included for hover popup
   }));
 
   console.log(`   ✅ Answer generated!`);

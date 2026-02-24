@@ -37,7 +37,7 @@ export function chunkPaper(paper) {
 
   const chunks = chunkText(paper.fullText);
 
-  // Attach paper metadata to each chunk
+  // Attach paper metadata to each chunk — including abstract for hover preview
   const chunksWithMetadata = chunks.map((chunk, index) => ({
     text: chunk,
     metadata: {
@@ -46,6 +46,7 @@ export function chunkPaper(paper) {
       authors: paper.authors.join(", "),
       published: paper.published,
       pdfUrl: paper.pdfUrl,
+      abstract: paper.abstract || null,   // ← added for hover popup
       chunkIndex: index,
       totalChunks: chunks.length,
     }

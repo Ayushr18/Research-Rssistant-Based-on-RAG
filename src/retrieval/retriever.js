@@ -1,39 +1,38 @@
-import { embedText } from "../embeddings/embedder.js";
 import { similaritySearch } from "../database/vectorStore.js";
+import { embedText } from "../embeddings/embedder.js";
 
-export async function retrieveRelevantChunks(question, topK = 5) {
-  console.log(`\n🔍 Finding relevant chunks for: "${question}"`);
+export async function retrieveRelevantChunks(question, topK = 3) {
+  console.log(`\n🔍 Retrieving relevant chunks for: "${question}"`);
 
-  // Step 1: Convert the question into an embedding
-  // Same process as we did for chunks - question becomes 384 numbers
-  const questionEmbedding = await embedText(question);
-  console.log(`   ✅ Question converted to vector`);
+  // Step 1: Embed the question
+  const queryEmbedding = await embedText(question);
 
-  // Step 2: Search the database for similar chunks
-  // ChromaDB compares question vector against all stored vectors
-  // Returns the most similar ones
-  const results = await similaritySearch(questionEmbedding, topK);
+  // Step 2: Search vector store
+  const results = await similaritySearch(queryEmbedding, topK);
 
   if (results.length === 0) {
-    console.log(`   ⚠️  No relevant chunks found`);
+    console.log("   ⚠️  No relevant chunks found");
     return [];
   }
 
-  console.log(`   ✅ Found ${results.length} relevant chunks`);
-
-  // Step 3: Format results nicely
-  const formattedResults = results.map((result, index) => ({
-    rank: index + 1,
+  // Step 3: Format results — include abstract in source
+  const chunks = results.map(result => ({
     text: result.text,
-    score: result.score.toFixed(4),
+    score: result.score,
     source: {
-      title: result.metadata.title,
-      authors: result.metadata.authors,
+      paperId:   result.metadata.paperId,
+      title:     result.metadata.title,
+      authors:   result.metadata.authors,
       published: result.metadata.published,
-      pdfUrl: result.metadata.pdfUrl,
-      chunkIndex: result.metadata.chunkIndex,
+      pdfUrl:    result.metadata.pdfUrl,
+      abstract:  result.metadata.abstract || null,  // ← passed through for hover popup
     },
   }));
 
-  return formattedResults;
+  console.log(`   ✅ Found ${chunks.length} relevant chunks`);
+  chunks.forEach((c, i) => {
+    console.log(`   ${i + 1}. Score: ${c.score.toFixed(3)} — ${c.source.title?.slice(0, 50)}`);
+  });
+
+  return chunks; 
 }
