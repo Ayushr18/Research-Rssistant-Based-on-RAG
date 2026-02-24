@@ -5,7 +5,7 @@ import {
   ChevronRight, FileText, Users, Calendar,
   ExternalLink, Database, Sparkles, Hash, Trash2,
   CheckCircle2, SkipForward, Download, Scissors, Cpu,
-  Upload, X, File
+  Upload, X, File, Send, MessageSquare, Bot, User
 } from "lucide-react";
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:3001/api";
@@ -193,6 +193,130 @@ function CitationCard({ citation }) {
   );
 }
 
+// ─── CHAT MESSAGE COMPONENT ───
+function ChatMessage({ message, isLast }) {
+  const isUser = message.role === "user";
+  return (
+    <div style={{
+      display: "flex",
+      flexDirection: isUser ? "row-reverse" : "row",
+      gap: "12px",
+      alignItems: "flex-start",
+      animation: "fadeSlideIn 0.3s ease both",
+      marginBottom: "24px",
+    }}>
+      {/* Avatar */}
+      <div style={{
+        width: "32px", height: "32px", flexShrink: 0,
+        borderRadius: "10px",
+        background: isUser
+          ? "linear-gradient(135deg, var(--gold), var(--gold-dim))"
+          : "rgba(96,165,250,0.15)",
+        border: isUser ? "none" : "1px solid rgba(96,165,250,0.3)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+      }}>
+        {isUser
+          ? <User size={15} color="#0a0b0f" />
+          : <Brain size={15} color="#60a5fa" />
+        }
+      </div>
+
+      {/* Bubble */}
+      <div style={{ maxWidth: "75%", minWidth: 0 }}>
+        <div style={{
+          background: isUser
+            ? "linear-gradient(135deg, rgba(240,165,0,0.12), rgba(240,165,0,0.06))"
+            : "var(--bg-card)",
+          border: isUser
+            ? "1px solid rgba(240,165,0,0.25)"
+            : "1px solid var(--border)",
+          borderRadius: isUser ? "16px 4px 16px 16px" : "4px 16px 16px 16px",
+          padding: "14px 18px",
+        }}>
+          {isUser ? (
+            <p style={{ color: "var(--text-primary)", fontSize: "14px", lineHeight: 1.6, fontFamily: "'DM Sans'" }}>
+              {message.question}
+            </p>
+          ) : (
+            <div>
+              {message.loading ? (
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", color: "var(--text-muted)", fontSize: "13px" }}>
+                  <Loader2 size={13} style={{ animation: "spin 1s linear infinite" }} color="var(--gold)" />
+                  <span style={{ fontFamily: "'JetBrains Mono'" }}>Thinking...</span>
+                </div>
+              ) : (
+                <>
+                  <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "10px" }}>
+                    <Badge color="green">Grounded</Badge>
+                    <span style={{ color: "var(--text-muted)", fontSize: "11px", fontFamily: "'JetBrains Mono'" }}>
+                      {message.citations?.length || 0} sources
+                    </span>
+                  </div>
+                  <div style={{
+                    color: "var(--text-primary)", fontSize: "14px", lineHeight: 1.8,
+                    whiteSpace: "pre-wrap", fontFamily: "'DM Sans'",
+                  }}>
+                    {message.answer}
+                  </div>
+
+                  {/* Citations inside bubble */}
+                  {message.citations?.length > 0 && (
+                    <div style={{ marginTop: "16px", borderTop: "1px solid var(--border)", paddingTop: "14px" }}>
+                      <p style={{ color: "var(--text-muted)", fontSize: "11px", fontFamily: "'JetBrains Mono'", letterSpacing: "0.06em", marginBottom: "10px" }}>
+                        SOURCES
+                      </p>
+                      <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                        {message.citations.map(citation => (
+                          <div key={citation.number} style={{
+                            display: "flex", alignItems: "center", gap: "10px",
+                            padding: "8px 12px",
+                            background: "var(--bg-secondary)", borderRadius: "8px",
+                            border: "1px solid var(--border)",
+                            borderLeft: "2px solid var(--gold)",
+                          }}>
+                            <span style={{ color: "var(--gold)", fontSize: "11px", fontFamily: "'JetBrains Mono'", flexShrink: 0 }}>
+                              [{citation.number}]
+                            </span>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <p style={{
+                                color: "var(--text-primary)", fontSize: "12px",
+                                fontFamily: "'DM Sans'", fontWeight: 600,
+                                overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                              }}>
+                                {citation.title}
+                              </p>
+                              <p style={{ color: "var(--text-muted)", fontSize: "11px" }}>{citation.published}</p>
+                            </div>
+                            {isRealPdf(citation.pdfUrl) && (
+                              <a href={citation.pdfUrl} target="_blank" rel="noreferrer" style={{ color: "var(--text-muted)", flexShrink: 0 }}
+                                onMouseEnter={e => e.currentTarget.style.color = "var(--gold)"}
+                                onMouseLeave={e => e.currentTarget.style.color = "var(--text-muted)"}
+                              >
+                                <ExternalLink size={12} />
+                              </a>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Error state */}
+                  {message.error && (
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px", color: "#f87171", fontSize: "13px", marginTop: "8px" }}>
+                      <AlertCircle size={13} /> {message.error}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── UPLOAD TAB COMPONENT ───
 function UploadTab({ onPaperIndexed, setStats }) {
   const [dragOver, setDragOver]     = useState(false);
@@ -220,7 +344,6 @@ function UploadTab({ onPaperIndexed, setStats }) {
     setUploadDone(false);
     setIndexedPaper(null);
     setProgress(0);
-    // Auto-fill title from filename
     if (!title) setTitle(f.name.replace(".pdf", "").replace(/[_-]/g, " "));
   }
 
@@ -245,15 +368,12 @@ function UploadTab({ onPaperIndexed, setStats }) {
         },
       });
       setProgress(80);
-
-      // short pause so user sees the bar hit 80
       await new Promise(r => setTimeout(r, 400));
       setProgress(100);
       setUploadDone(true);
       setIndexedPaper(res.data.paper);
       setStats(res.data.stats);
       onPaperIndexed(res.data.paper);
-
     } catch (err) {
       setError(err.response?.data?.error || "Upload failed. Please try again.");
     } finally {
@@ -273,7 +393,6 @@ function UploadTab({ onPaperIndexed, setStats }) {
         <h2 className="panel-title">Upload Your Own PDF</h2>
         <p className="panel-subtitle">Have a paper already? Upload it directly and start asking questions.</p>
 
-        {/* ── DRAG & DROP ZONE ── */}
         {!file && (
           <div
             onDragOver={e => { e.preventDefault(); setDragOver(true); }}
@@ -282,50 +401,26 @@ function UploadTab({ onPaperIndexed, setStats }) {
             onClick={() => fileInputRef.current?.click()}
             style={{
               border: `2px dashed ${dragOver ? "var(--gold)" : "var(--border)"}`,
-              borderRadius: "14px",
-              padding: "48px 24px",
-              textAlign: "center",
-              cursor: "pointer",
-              transition: "all 0.2s",
+              borderRadius: "14px", padding: "48px 24px", textAlign: "center",
+              cursor: "pointer", transition: "all 0.2s",
               background: dragOver ? "rgba(240,165,0,0.04)" : "var(--bg-secondary)",
-              marginBottom: "0",
             }}
             onMouseEnter={e => { e.currentTarget.style.borderColor = "rgba(240,165,0,0.5)"; e.currentTarget.style.background = "rgba(240,165,0,0.03)"; }}
             onMouseLeave={e => { if (!dragOver) { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.background = "var(--bg-secondary)"; }}}
           >
-            <div style={{
-              width: "52px", height: "52px", margin: "0 auto 16px",
-              background: "rgba(240,165,0,0.1)", border: "1px solid rgba(240,165,0,0.25)",
-              borderRadius: "14px", display: "flex", alignItems: "center", justifyContent: "center",
-            }}>
+            <div style={{ width: "52px", height: "52px", margin: "0 auto 16px", background: "rgba(240,165,0,0.1)", border: "1px solid rgba(240,165,0,0.25)", borderRadius: "14px", display: "flex", alignItems: "center", justifyContent: "center" }}>
               <Upload size={22} color="var(--gold)" />
             </div>
-            <p style={{ color: "var(--text-primary)", fontSize: "15px", fontWeight: 600, marginBottom: "6px", fontFamily: "'DM Sans'" }}>
-              Drop your PDF here
-            </p>
-            <p style={{ color: "var(--text-muted)", fontSize: "13px", marginBottom: "14px" }}>
-              or click to browse files
-            </p>
-            <span style={{
-              display: "inline-block", padding: "5px 14px",
-              background: "var(--bg-card)", border: "1px solid var(--border)",
-              borderRadius: "8px", color: "var(--text-muted)",
-              fontSize: "11px", fontFamily: "'JetBrains Mono'",
-            }}>PDF up to 20MB</span>
-            <input ref={fileInputRef} type="file" accept=".pdf" style={{ display: "none" }}
-              onChange={e => { if (e.target.files[0]) pickFile(e.target.files[0]); }} />
+            <p style={{ color: "var(--text-primary)", fontSize: "15px", fontWeight: 600, marginBottom: "6px", fontFamily: "'DM Sans'" }}>Drop your PDF here</p>
+            <p style={{ color: "var(--text-muted)", fontSize: "13px", marginBottom: "14px" }}>or click to browse files</p>
+            <span style={{ display: "inline-block", padding: "5px 14px", background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "8px", color: "var(--text-muted)", fontSize: "11px", fontFamily: "'JetBrains Mono'" }}>PDF up to 20MB</span>
+            <input ref={fileInputRef} type="file" accept=".pdf" style={{ display: "none" }} onChange={e => { if (e.target.files[0]) pickFile(e.target.files[0]); }} />
           </div>
         )}
 
-        {/* ── FILE SELECTED ── */}
         {file && !uploadDone && (
           <div>
-            {/* File chip */}
-            <div style={{
-              display: "flex", alignItems: "center", gap: "12px",
-              background: "var(--bg-secondary)", border: "1px solid rgba(240,165,0,0.3)",
-              borderRadius: "10px", padding: "12px 16px", marginBottom: "20px",
-            }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "12px", background: "var(--bg-secondary)", border: "1px solid rgba(240,165,0,0.3)", borderRadius: "10px", padding: "12px 16px", marginBottom: "20px" }}>
               <div style={{ width: "36px", height: "36px", flexShrink: 0, background: "rgba(240,165,0,0.1)", borderRadius: "8px", display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <File size={18} color="var(--gold)" />
               </div>
@@ -339,49 +434,21 @@ function UploadTab({ onPaperIndexed, setStats }) {
               ><X size={16} /></button>
             </div>
 
-            {/* Optional metadata */}
             <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginBottom: "20px" }}>
               <div>
                 <label style={{ display: "block", color: "var(--text-secondary)", fontSize: "11px", fontFamily: "'JetBrains Mono'", letterSpacing: "0.08em", marginBottom: "6px" }}>TITLE (optional)</label>
-                <input
-                  className="search-input"
-                  value={title}
-                  onChange={e => setTitle(e.target.value)}
-                  placeholder="Paper title (auto-filled from filename)"
-                  style={{ width: "100%", paddingLeft: "16px" }}
-                />
+                <input className="search-input" value={title} onChange={e => setTitle(e.target.value)} placeholder="Paper title (auto-filled from filename)" style={{ width: "100%", paddingLeft: "16px" }} />
               </div>
               <div>
                 <label style={{ display: "block", color: "var(--text-secondary)", fontSize: "11px", fontFamily: "'JetBrains Mono'", letterSpacing: "0.08em", marginBottom: "6px" }}>AUTHORS (optional)</label>
-                <input
-                  className="search-input"
-                  value={authors}
-                  onChange={e => setAuthors(e.target.value)}
-                  placeholder="e.g. John Smith, Jane Doe"
-                  style={{ width: "100%", paddingLeft: "16px" }}
-                />
+                <input className="search-input" value={authors} onChange={e => setAuthors(e.target.value)} placeholder="e.g. John Smith, Jane Doe" style={{ width: "100%", paddingLeft: "16px" }} />
               </div>
             </div>
 
-            {/* Upload button */}
-            <button
-              className="action-btn"
-              onClick={handleUpload}
-              disabled={uploading}
-              style={{
-                width: "100%", justifyContent: "center",
-                background: uploading ? "var(--bg-hover)" : "linear-gradient(135deg, var(--gold), var(--gold-dim))",
-                color: uploading ? "var(--text-muted)" : "#0a0b0f",
-                cursor: uploading ? "not-allowed" : "pointer",
-              }}
-            >
-              {uploading
-                ? <><Loader2 size={15} style={{ animation: "spin 1s linear infinite" }} /> Processing...</>
-                : <><Upload size={15} /> Index This Paper</>
-              }
+            <button className="action-btn" onClick={handleUpload} disabled={uploading} style={{ width: "100%", justifyContent: "center", background: uploading ? "var(--bg-hover)" : "linear-gradient(135deg, var(--gold), var(--gold-dim))", color: uploading ? "var(--text-muted)" : "#0a0b0f", cursor: uploading ? "not-allowed" : "pointer" }}>
+              {uploading ? <><Loader2 size={15} style={{ animation: "spin 1s linear infinite" }} /> Processing...</> : <><Upload size={15} /> Index This Paper</>}
             </button>
 
-            {/* Progress bar */}
             {uploading && (
               <div style={{ marginTop: "16px" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px" }}>
@@ -391,12 +458,7 @@ function UploadTab({ onPaperIndexed, setStats }) {
                   <span style={{ fontFamily: "'JetBrains Mono'", fontSize: "12px", fontWeight: 700, color: "var(--gold)" }}>{progress}%</span>
                 </div>
                 <div style={{ width: "100%", height: "6px", background: "var(--bg-hover)", borderRadius: "999px", overflow: "hidden" }}>
-                  <div style={{
-                    height: "100%", width: `${progress}%`,
-                    background: "linear-gradient(90deg, var(--gold), #ffcc55)",
-                    borderRadius: "999px", transition: "width 0.3s ease",
-                    boxShadow: "0 0 8px rgba(240,165,0,0.3)",
-                  }} />
+                  <div style={{ height: "100%", width: `${progress}%`, background: "linear-gradient(90deg, var(--gold), #ffcc55)", borderRadius: "999px", transition: "width 0.3s ease", boxShadow: "0 0 8px rgba(240,165,0,0.3)" }} />
                 </div>
               </div>
             )}
@@ -405,14 +467,9 @@ function UploadTab({ onPaperIndexed, setStats }) {
           </div>
         )}
 
-        {/* ── SUCCESS STATE ── */}
         {uploadDone && indexedPaper && (
           <div style={{ animation: "fadeSlideIn 0.4s ease both" }}>
-            <div style={{
-              background: "rgba(74,222,128,0.06)", border: "1px solid rgba(74,222,128,0.25)",
-              borderRadius: "12px", padding: "20px", marginBottom: "20px",
-              display: "flex", alignItems: "flex-start", gap: "14px",
-            }}>
+            <div style={{ background: "rgba(74,222,128,0.06)", border: "1px solid rgba(74,222,128,0.25)", borderRadius: "12px", padding: "20px", marginBottom: "20px", display: "flex", alignItems: "flex-start", gap: "14px" }}>
               <div style={{ width: "36px", height: "36px", flexShrink: 0, background: "rgba(74,222,128,0.1)", borderRadius: "10px", display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <CheckCircle2 size={20} color="#4ade80" />
               </div>
@@ -424,12 +481,7 @@ function UploadTab({ onPaperIndexed, setStats }) {
               </div>
             </div>
             <div style={{ display: "flex", gap: "10px" }}>
-              <button onClick={reset} style={{
-                flex: 1, padding: "11px", background: "var(--bg-secondary)",
-                border: "1px solid var(--border)", borderRadius: "10px",
-                color: "var(--text-secondary)", fontSize: "13px", cursor: "pointer",
-                fontFamily: "'DM Sans'", fontWeight: 600,
-              }}>Upload Another</button>
+              <button onClick={reset} style={{ flex: 1, padding: "11px", background: "var(--bg-secondary)", border: "1px solid var(--border)", borderRadius: "10px", color: "var(--text-secondary)", fontSize: "13px", cursor: "pointer", fontFamily: "'DM Sans'", fontWeight: 600 }}>Upload Another</button>
             </div>
           </div>
         )}
@@ -446,12 +498,12 @@ export default function App() {
   const [maxResults, setMaxResults]         = useState(3);
   const [question, setQuestion]             = useState("");
   const [papers, setPapers]                 = useState([]);
-  const [answer, setAnswer]                 = useState("");
-  const [citations, setCitations]           = useState([]);
   const [stats, setStats]                   = useState({ totalPapers: 0, totalChunks: 0 });
-  const [loading, setLoading]               = useState(false);
   const [error, setError]                   = useState("");
-  const [status, setStatus]                 = useState("");
+
+  // Chat history — array of { role: "user"|"ai", question?, answer?, citations?, loading?, error? }
+  const [messages, setMessages] = useState([]);
+  const [isAsking, setIsAsking] = useState(false);
 
   const [progress, setProgress]         = useState(0);
   const [progressLogs, setProgressLogs] = useState([]);
@@ -459,8 +511,11 @@ export default function App() {
   const [ingestDone, setIngestDone]     = useState(false);
   const [ingestError, setIngestError]   = useState(false);
   const eventSourceRef = useRef(null);
+  const chatEndRef     = useRef(null);
+  const inputRef       = useRef(null);
 
   useEffect(() => { fetchStats(); }, []);
+  useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
 
   async function fetchStats() {
     try { const res = await axios.get(`${API}/stats`); setStats(res.data); } catch {}
@@ -498,16 +553,39 @@ export default function App() {
   }
 
   async function handleAsk() {
-    if (!question.trim()) return;
-    setLoading(true); setError(""); setAnswer(""); setCitations([]);
-    setStatus("Searching through papers...");
+    const q = question.trim();
+    if (!q || isAsking) return;
+
+    // Add user message immediately
+    const userMsg = { role: "user", question: q };
+    const aiMsg   = { role: "ai", loading: true };
+    setMessages(prev => [...prev, userMsg, aiMsg]);
+    setQuestion("");
+    setIsAsking(true);
+
     try {
-      setStatus("Generating answer with AI...");
-      const res = await axios.post(`${API}/ask`, { question });
-      setAnswer(res.data.answer); setCitations(res.data.citations); setStatus("");
+      const res = await axios.post(`${API}/ask`, { question: q });
+      // Replace the loading AI message with the real answer
+      setMessages(prev => prev.map((m, i) =>
+        i === prev.length - 1
+          ? { role: "ai", answer: res.data.answer, citations: res.data.citations }
+          : m
+      ));
     } catch (err) {
-      setError(err.response?.data?.error || "Something went wrong"); setStatus("");
-    } finally { setLoading(false); }
+      const errMsg = err.response?.data?.error || "Something went wrong. Please try again.";
+      setMessages(prev => prev.map((m, i) =>
+        i === prev.length - 1
+          ? { role: "ai", error: errMsg }
+          : m
+      ));
+    } finally {
+      setIsAsking(false);
+      setTimeout(() => inputRef.current?.focus(), 100);
+    }
+  }
+
+  function handleClearChat() {
+    setMessages([]);
   }
 
   async function handleClear() {
@@ -515,12 +593,11 @@ export default function App() {
     try {
       await axios.delete(`${API}/clear`);
       setStats({ totalPapers: 0, totalChunks: 0 });
-      setPapers([]); setAnswer(""); setCitations([]);
+      setPapers([]); setMessages([]);
       setProgress(0); setProgressLogs([]); setIngestDone(false);
     } catch {}
   }
 
-  // Called when UploadTab successfully indexes a paper
   function handlePaperIndexed(paper) {
     setPapers(prev => [paper, ...prev]);
   }
@@ -576,6 +653,68 @@ export default function App() {
         .status-row { display: flex; align-items: center; gap: 8px; color: var(--gold); font-size: 13px; font-family: 'JetBrains Mono'; margin-top: 12px; animation: pulse 1.5s ease infinite; }
         .error-row { display: flex; align-items: center; gap: 8px; color: var(--red); font-size: 13px; background: rgba(248,113,113,0.08); border: 1px solid rgba(248,113,113,0.2); border-radius: 8px; padding: 10px 14px; margin-top: 12px; }
 
+        /* ── CHAT STYLES ── */
+        .chat-container {
+          background: var(--bg-card);
+          border: 1px solid var(--border);
+          border-radius: 16px;
+          display: flex;
+          flex-direction: column;
+          height: 600px;
+          overflow: hidden;
+        }
+        .chat-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 18px 24px;
+          border-bottom: 1px solid var(--border);
+          flex-shrink: 0;
+        }
+        .chat-messages {
+          flex: 1;
+          overflow-y: auto;
+          padding: 24px;
+          scroll-behavior: smooth;
+        }
+        .chat-messages::-webkit-scrollbar { width: 4px; }
+        .chat-messages::-webkit-scrollbar-track { background: transparent; }
+        .chat-messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+        .chat-input-area {
+          border-top: 1px solid var(--border);
+          padding: 16px 20px;
+          display: flex;
+          gap: 10px;
+          align-items: flex-end;
+          flex-shrink: 0;
+          background: var(--bg-secondary);
+        }
+        .chat-input {
+          flex: 1;
+          background: var(--bg-card);
+          border: 1px solid var(--border);
+          border-radius: 12px;
+          padding: 12px 16px;
+          color: var(--text-primary);
+          font-size: 14px;
+          font-family: 'DM Sans', sans-serif;
+          outline: none;
+          resize: none;
+          min-height: 44px;
+          max-height: 120px;
+          transition: border 0.2s;
+          line-height: 1.5;
+        }
+        .chat-input:focus { border-color: rgba(240,165,0,0.5); }
+        .chat-input::placeholder { color: var(--text-muted); }
+        .send-btn {
+          width: 44px; height: 44px; flex-shrink: 0;
+          border: none; border-radius: 10px; cursor: pointer;
+          display: flex; align-items: center; justify-content: center;
+          transition: all 0.2s;
+        }
+        .send-btn:disabled { cursor: not-allowed; opacity: 0.5; }
+
         @media (max-width: 768px) {
           .header-inner  { padding: 0 20px; height: 56px; }
           .chunks-pill   { display: none; }
@@ -587,11 +726,9 @@ export default function App() {
           .search-input-wrap { flex: 1 1 100%; }
           .count-select  { flex: 1; }
           .ingest-btn    { flex: 1; justify-content: center; }
-          .ask-row       { flex-wrap: wrap; }
-          .ask-input-wrap { flex: 1 1 100%; }
-          .ask-btn       { width: 100%; justify-content: center; }
           .papers-grid   { grid-template-columns: 1fr; }
           .tab-btn       { font-size: 13px; padding: 9px 12px; }
+          .chat-container { height: 500px; }
         }
         @media (max-width: 480px) {
           .header-inner  { padding: 0 14px; }
@@ -606,8 +743,8 @@ export default function App() {
           .hero-title    { font-size: clamp(24px, 7vw, 36px); }
           .hero-subtitle { font-size: 14px; }
           .tab-btn       { font-size: 11px; padding: 8px 6px; gap: 4px; }
-          .citation-card { flex-direction: column !important; align-items: flex-start !important; }
           .panel-title   { font-size: 17px; }
+          .chat-container { height: 420px; }
         }
       `}</style>
 
@@ -655,7 +792,7 @@ export default function App() {
             {[
               { id: "ingest", label: "Search Papers", icon: BookOpen },
               { id: "upload", label: "Upload PDF",    icon: Upload   },
-              { id: "ask",    label: "Ask Questions", icon: Brain    },
+              { id: "ask",    label: "Ask Questions", icon: MessageSquare },
             ].map(({ id, label, icon: Icon }) => (
               <button key={id} className="tab-btn" onClick={() => setTab(id)} style={{
                 background: tab === id ? "linear-gradient(135deg, rgba(240,165,0,0.15), rgba(240,165,0,0.05))" : "transparent",
@@ -725,12 +862,9 @@ export default function App() {
                   </div>
                   <div style={{ marginTop: "28px", textAlign: "center", padding: "24px", background: "var(--gold-glow)", border: "1px solid rgba(240,165,0,0.2)", borderRadius: "12px" }}>
                     <p style={{ color: "var(--text-secondary)", marginBottom: "12px", fontSize: "14px" }}>Papers indexed! Ready to answer questions.</p>
-                    <button onClick={() => setTab("ask")} style={{
-                      display: "inline-flex", alignItems: "center", gap: "8px", padding: "10px 24px",
-                      background: "linear-gradient(135deg, var(--gold), var(--gold-dim))", border: "none",
-                      borderRadius: "8px", color: "#0a0b0f", fontWeight: 600, fontSize: "14px",
-                      cursor: "pointer", fontFamily: "'DM Sans'",
-                    }}>Ask Questions <ChevronRight size={14} /></button>
+                    <button onClick={() => setTab("ask")} style={{ display: "inline-flex", alignItems: "center", gap: "8px", padding: "10px 24px", background: "linear-gradient(135deg, var(--gold), var(--gold-dim))", border: "none", borderRadius: "8px", color: "#0a0b0f", fontWeight: 600, fontSize: "14px", cursor: "pointer", fontFamily: "'DM Sans'" }}>
+                      Ask Questions <ChevronRight size={14} />
+                    </button>
                   </div>
                 </div>
               )}
@@ -742,68 +876,101 @@ export default function App() {
             <UploadTab onPaperIndexed={handlePaperIndexed} setStats={setStats} />
           )}
 
-          {/* ── ASK TAB ── */}
+          {/* ── ASK TAB — CHAT INTERFACE ── */}
           {tab === "ask" && (
             <div style={{ animation: "fadeSlideIn 0.3s ease both" }}>
-              <div className="panel-card">
-                <h2 className="panel-title">Ask a Research Question</h2>
-                <p className="panel-subtitle">Ask anything about the papers you've ingested or uploaded. Get cited answers.</p>
+              <div className="chat-container">
 
-                <div className="search-row ask-row">
-                  <div className="search-input-wrap ask-input-wrap">
-                    <span className="search-input-icon"><Brain size={16} /></span>
-                    <input className="search-input" value={question} onChange={e => setQuestion(e.target.value)} onKeyDown={e => e.key === "Enter" && handleAsk()} placeholder='e.g. "What are the main findings of these papers?"' />
-                  </div>
-                  <button className="action-btn ask-btn" onClick={handleAsk} disabled={loading || !question.trim()} style={{
-                    background: loading ? "var(--bg-hover)" : "linear-gradient(135deg, var(--gold), var(--gold-dim))",
-                    color: loading ? "var(--text-muted)" : "#0a0b0f",
-                    cursor: loading ? "not-allowed" : "pointer",
-                  }}>
-                    {loading ? <Loader2 size={15} style={{ animation: "spin 1s linear infinite" }} /> : <Sparkles size={15} />}
-                    {loading ? "Thinking..." : "Ask AI"}
-                  </button>
-                </div>
-
-                {status && <div className="status-row"><Loader2 size={13} style={{ animation: "spin 1s linear infinite" }} />{status}</div>}
-                {error  && <div className="error-row"><AlertCircle size={14} />{error}</div>}
-              </div>
-
-              {answer && (
-                <div style={{ animation: "fadeSlideIn 0.4s ease both" }}>
-                  <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderTop: "3px solid var(--gold)", borderRadius: "16px", padding: "32px", marginBottom: "20px" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "20px", flexWrap: "wrap" }}>
-                      <div style={{ width: "28px", height: "28px", flexShrink: 0, background: "var(--gold-glow)", border: "1px solid rgba(240,165,0,0.3)", borderRadius: "8px", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                        <Brain size={14} color="var(--gold)" />
-                      </div>
-                      <span style={{ fontFamily: "'Playfair Display', serif", fontSize: "16px", fontWeight: 600 }}>AI Answer</span>
-                      <Badge color="green">Grounded</Badge>
+                {/* Chat header */}
+                <div className="chat-header">
+                  <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                    <div style={{ width: "28px", height: "28px", background: "rgba(96,165,250,0.15)", border: "1px solid rgba(96,165,250,0.3)", borderRadius: "8px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <Brain size={14} color="#60a5fa" />
                     </div>
-                    <div style={{ color: "var(--text-primary)", fontSize: "15px", lineHeight: 1.8, whiteSpace: "pre-wrap", fontFamily: "'DM Sans', sans-serif" }}>{answer}</div>
-                  </div>
-
-                  {citations.length > 0 && (
                     <div>
-                      <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: "16px", marginBottom: "14px", display: "flex", alignItems: "center", gap: "8px" }}>
-                        <FileText size={15} color="var(--gold)" />Sources & Citations
-                      </h3>
-                      <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                        {citations.map(citation => <CitationCard key={citation.number} citation={citation} />)}
-                      </div>
+                      <p style={{ fontFamily: "'Playfair Display', serif", fontSize: "15px", fontWeight: 600, color: "var(--text-primary)" }}>ResearchMind AI</p>
+                      <p style={{ fontSize: "11px", color: "var(--text-muted)", fontFamily: "'JetBrains Mono'" }}>
+                        {stats.totalPapers} papers · {stats.totalChunks} chunks indexed
+                      </p>
                     </div>
+                  </div>
+                  {messages.length > 0 && (
+                    <button onClick={handleClearChat} style={{ display: "flex", alignItems: "center", gap: "5px", padding: "5px 10px", background: "transparent", border: "1px solid var(--border)", borderRadius: "6px", color: "var(--text-muted)", fontSize: "11px", cursor: "pointer", fontFamily: "'JetBrains Mono'", transition: "all 0.2s" }}
+                      onMouseEnter={e => { e.currentTarget.style.borderColor = "rgba(248,113,113,0.3)"; e.currentTarget.style.color = "#f87171"; }}
+                      onMouseLeave={e => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.color = "var(--text-muted)"; }}
+                    >
+                      <Trash2 size={10} /> Clear chat
+                    </button>
                   )}
                 </div>
-              )}
 
-              {!answer && !loading && (
-                <div style={{ textAlign: "center", padding: "60px 20px", color: "var(--text-muted)" }}>
-                  <Brain size={40} style={{ marginBottom: "16px", opacity: 0.3 }} />
-                  <p style={{ fontSize: "14px" }}>
-                    {stats.totalChunks === 0
-                      ? "No papers ingested yet. Go to Search Papers or Upload PDF first."
-                      : "Ask a question about your research papers above."}
-                  </p>
+                {/* Messages area */}
+                <div className="chat-messages">
+                  {messages.length === 0 && (
+                    <div style={{ height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "12px" }}>
+                      <div style={{ width: "48px", height: "48px", background: "rgba(96,165,250,0.1)", border: "1px solid rgba(96,165,250,0.2)", borderRadius: "14px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        <Brain size={22} color="#60a5fa" style={{ opacity: 0.6 }} />
+                      </div>
+                      <p style={{ color: "var(--text-muted)", fontSize: "14px", fontFamily: "'DM Sans'", textAlign: "center", maxWidth: "280px", lineHeight: 1.6 }}>
+                        {stats.totalChunks === 0
+                          ? "No papers indexed yet. Go to Search Papers or Upload PDF first."
+                          : "Ask anything about your research papers. Your full conversation will stay visible here."
+                        }
+                      </p>
+                      {stats.totalChunks > 0 && (
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", justifyContent: "center", marginTop: "8px" }}>
+                          {["What are the main findings?", "Compare the methodologies", "What are the limitations?"].map(q => (
+                            <button key={q} onClick={() => { setQuestion(q); inputRef.current?.focus(); }} style={{ padding: "6px 12px", background: "var(--bg-secondary)", border: "1px solid var(--border)", borderRadius: "20px", color: "var(--text-secondary)", fontSize: "12px", cursor: "pointer", fontFamily: "'DM Sans'", transition: "all 0.2s" }}
+                              onMouseEnter={e => { e.currentTarget.style.borderColor = "rgba(240,165,0,0.4)"; e.currentTarget.style.color = "var(--gold)"; }}
+                              onMouseLeave={e => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.color = "var(--text-secondary)"; }}
+                            >{q}</button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {messages.map((msg, i) => (
+                    <ChatMessage key={i} message={msg} isLast={i === messages.length - 1} />
+                  ))}
+                  <div ref={chatEndRef} />
                 </div>
-              )}
+
+                {/* Input area */}
+                <div className="chat-input-area">
+                  <textarea
+                    ref={inputRef}
+                    className="chat-input"
+                    value={question}
+                    onChange={e => {
+                      setQuestion(e.target.value);
+                      e.target.style.height = "44px";
+                      e.target.style.height = Math.min(e.target.scrollHeight, 120) + "px";
+                    }}
+                    onKeyDown={e => {
+                      if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleAsk(); }
+                    }}
+                    placeholder="Ask a question about your papers... (Enter to send, Shift+Enter for new line)"
+                    rows={1}
+                    disabled={isAsking}
+                  />
+                  <button
+                    className="send-btn"
+                    onClick={handleAsk}
+                    disabled={isAsking || !question.trim()}
+                    style={{
+                      background: isAsking || !question.trim()
+                        ? "var(--bg-hover)"
+                        : "linear-gradient(135deg, var(--gold), var(--gold-dim))",
+                    }}
+                  >
+                    {isAsking
+                      ? <Loader2 size={16} color="var(--text-muted)" style={{ animation: "spin 1s linear infinite" }} />
+                      : <Send size={16} color={question.trim() ? "#0a0b0f" : "var(--text-muted)"} />
+                    }
+                  </button>
+                </div>
+              </div>
             </div>
           )}
         </main>
