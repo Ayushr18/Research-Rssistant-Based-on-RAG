@@ -46,7 +46,6 @@ function WelcomeModal({ onSkip, onClose }) {
         position: "relative",
         textAlign: "center",
       }}>
-        {/* Icon */}
         <div style={{
           width: "64px", height: "64px", margin: "0 auto 24px",
           background: "linear-gradient(135deg, rgba(240,165,0,0.2), rgba(240,165,0,0.05))",
@@ -57,7 +56,6 @@ function WelcomeModal({ onSkip, onClose }) {
           <Brain size={28} color="var(--gold)" />
         </div>
 
-        {/* Title */}
         <h2 style={{
           fontFamily: "'Playfair Display', serif",
           fontSize: "26px", fontWeight: 700,
@@ -75,7 +73,6 @@ function WelcomeModal({ onSkip, onClose }) {
           or explore with <strong style={{ color: "var(--text-primary)" }}>10 free searches</strong> first.
         </p>
 
-        {/* Perks */}
         <div style={{
           background: "rgba(240,165,0,0.05)",
           border: "1px solid rgba(240,165,0,0.15)",
@@ -101,18 +98,15 @@ function WelcomeModal({ onSkip, onClose }) {
           ))}
         </div>
 
-        {/* Sign up button via Clerk */}
         <SignInButton mode="modal" afterSignInUrl="/" afterSignUpUrl="/">
           <button onClick={onClose} style={{
-            width: "100%",
-            padding: "14px",
+            width: "100%", padding: "14px",
             background: "linear-gradient(135deg, var(--gold), #ffcc55)",
             border: "none", borderRadius: "12px",
             color: "#0a0b0f", fontWeight: 700, fontSize: "15px",
             cursor: "pointer", fontFamily: "'DM Sans'",
             display: "flex", alignItems: "center", justifyContent: "center", gap: "8px",
-            marginBottom: "12px",
-            transition: "opacity 0.2s",
+            marginBottom: "12px", transition: "opacity 0.2s",
             boxShadow: "0 4px 20px rgba(240,165,0,0.3)",
           }}
             onMouseEnter={e => e.currentTarget.style.opacity = "0.9"}
@@ -128,14 +122,12 @@ function WelcomeModal({ onSkip, onClose }) {
           </button>
         </SignInButton>
 
-        {/* Skip */}
         <button onClick={onSkip} style={{
           width: "100%", padding: "12px",
           background: "transparent",
           border: "1px solid var(--border)", borderRadius: "12px",
           color: "var(--text-muted)", fontSize: "13px",
-          cursor: "pointer", fontFamily: "'DM Sans'",
-          transition: "all 0.2s",
+          cursor: "pointer", fontFamily: "'DM Sans'", transition: "all 0.2s",
         }}
           onMouseEnter={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.2)"; e.currentTarget.style.color = "var(--text-secondary)"; }}
           onMouseLeave={e => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.color = "var(--text-muted)"; }}
@@ -151,13 +143,13 @@ function WelcomeModal({ onSkip, onClose }) {
   );
 }
 
-// ─── HARD WALL MODAL (after 10 searches, no skip) ───
-function HardWallModal({ searchCount, onClose }) {
+// ─── HARD WALL MODAL (after 10 searches — NO skip, NO close, NO escape) ───
+function HardWallModal() {
   return (
     <div style={{
       position: "fixed", inset: 0, zIndex: 1000,
-      background: "rgba(0,0,0,0.85)",
-      backdropFilter: "blur(12px)",
+      background: "rgba(0,0,0,0.92)",
+      backdropFilter: "blur(16px)",
       display: "flex", alignItems: "center", justifyContent: "center",
       padding: "20px",
       animation: "fadeIn 0.3s ease both",
@@ -173,7 +165,6 @@ function HardWallModal({ searchCount, onClose }) {
         animation: "slideUp 0.4s cubic-bezier(0.16,1,0.3,1) both",
         textAlign: "center",
       }}>
-        {/* Lock icon */}
         <div style={{
           width: "64px", height: "64px", margin: "0 auto 24px",
           background: "rgba(248,113,113,0.1)",
@@ -184,25 +175,21 @@ function HardWallModal({ searchCount, onClose }) {
           <Lock size={28} color="#f87171" />
         </div>
 
-        {/* Title */}
         <h2 style={{
           fontFamily: "'Playfair Display', serif",
           fontSize: "24px", fontWeight: 700,
-          color: "var(--text-primary)",
-          marginBottom: "10px",
+          color: "var(--text-primary)", marginBottom: "10px",
         }}>
           You've used your {FREE_LIMIT} free searches
         </h2>
         <p style={{
           color: "var(--text-secondary)", fontSize: "14px",
-          lineHeight: 1.7, marginBottom: "28px",
-          fontFamily: "'DM Sans'",
+          lineHeight: 1.7, marginBottom: "28px", fontFamily: "'DM Sans'",
         }}>
           Sign up for free to keep going — unlimited questions,
           full chat history, and PDF exports.
         </p>
 
-        {/* Usage bar */}
         <div style={{
           background: "var(--bg-secondary)", borderRadius: "12px",
           padding: "16px", marginBottom: "28px",
@@ -216,9 +203,9 @@ function HardWallModal({ searchCount, onClose }) {
           </div>
         </div>
 
-        {/* Sign up via Clerk */}
+        {/* Sign up — ONLY way out */}
         <SignInButton mode="modal" afterSignInUrl="/" afterSignUpUrl="/">
-          <button onClick={onClose} style={{
+          <button style={{
             width: "100%", padding: "14px",
             background: "linear-gradient(135deg, var(--gold), #ffcc55)",
             border: "none", borderRadius: "12px",
@@ -740,7 +727,6 @@ export default function App() {
   const [ingestError, setIngestError]       = useState(false);
   const [serverStatus, setServerStatus]     = useState(null);
 
-  // ── Auth modal state ──
   const [showWelcome,  setShowWelcome]  = useState(false);
   const [showHardWall, setShowHardWall] = useState(false);
   const [searchCount,  setSearchCount]  = useState(0);
@@ -750,24 +736,27 @@ export default function App() {
   const inputRef       = useRef(null);
   const wakeTimerRef   = useRef(null);
 
-  // ── On mount: check welcome modal + restore search count ──
+  // ── On mount: check welcome + restore count ──
   useEffect(() => {
     fetchStats();
 
     if (!isSignedIn) {
       const welcomed = localStorage.getItem(STORAGE_KEY_WELCOMED);
       if (!welcomed) {
-        // Small delay so page loads first
         setTimeout(() => setShowWelcome(true), 800);
       }
       const count = parseInt(localStorage.getItem(STORAGE_KEY_COUNT) || "0", 10);
       setSearchCount(count);
+      // ✅ FIX 1: Auto-show hard wall on load if limit already reached
+      if (count >= FREE_LIMIT) {
+        setTimeout(() => setShowHardWall(true), 800);
+      }
     }
 
     return () => clearTimeout(wakeTimerRef.current);
   }, [isSignedIn]);
 
-  // If user signs in, close any open modals
+  // ✅ FIX 2: When user signs in, close all modals automatically
   useEffect(() => {
     if (isSignedIn) {
       setShowWelcome(false);
@@ -796,21 +785,20 @@ export default function App() {
   }
 
   function handleWelcomeClose() {
-    // Signed in via Clerk — modal closes via useEffect
     localStorage.setItem(STORAGE_KEY_WELCOMED, "signed_in");
     setShowWelcome(false);
   }
 
   function incrementSearchCount() {
-    if (isSignedIn) return true; // signed-in users have no limit
+    if (isSignedIn) return true;
     const next = searchCount + 1;
     setSearchCount(next);
     localStorage.setItem(STORAGE_KEY_COUNT, String(next));
     if (next > FREE_LIMIT) {
       setShowHardWall(true);
-      return false; // blocked
+      return false;
     }
-    return true; // allowed
+    return true;
   }
 
   function handleIngest() {
@@ -837,9 +825,8 @@ export default function App() {
     const q = question.trim();
     if (!q || isAsking) return;
 
-    // ── Check search limit for guests ──
     const allowed = incrementSearchCount();
-    if (!allowed) return; // hard wall shown
+    if (!allowed) return;
 
     const userMsg = { role: "user", question: q };
     const aiMsg   = { role: "ai", loading: true };
@@ -986,25 +973,20 @@ export default function App() {
         .stat-pill span { font-family: 'JetBrains Mono'; font-size: 12px; color: var(--text-secondary); }
         .clear-btn { display: flex; align-items: center; gap: 5px; padding: 6px 12px; background: transparent; border: 1px solid rgba(248,113,113,0.3); border-radius: 8px; color: #f87171; font-size: 12px; cursor: pointer; font-family: 'JetBrains Mono'; transition: all 0.2s; white-space: nowrap; flex-shrink: 0; }
         .clear-btn:hover { background: rgba(248,113,113,0.08); }
-
         .main-content { max-width: 1100px; margin: 0 auto; padding: 48px 40px 60px; }
         .hero-section { text-align: center; margin-bottom: 56px; animation: fadeSlideIn 0.6s ease both; }
         .hero-badge { display: inline-flex; align-items: center; gap: 6px; background: var(--gold-glow); border: 1px solid rgba(240,165,0,0.25); border-radius: 20px; padding: 5px 14px; margin-bottom: 24px; }
         .hero-title { font-family: 'Playfair Display', serif; font-size: clamp(28px, 5vw, 58px); font-weight: 700; line-height: 1.1; letter-spacing: -0.03em; margin-bottom: 16px; }
         .hero-subtitle { color: var(--text-secondary); font-size: 16px; max-width: 520px; margin: 0 auto; line-height: 1.7; }
-
         .tab-bar { display: flex; gap: 4px; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 12px; padding: 4px; margin-bottom: 32px; animation: fadeSlideIn 0.6s ease 0.1s both; }
         .tab-btn { flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 500; transition: all 0.2s ease; }
-
         .panel-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; padding: 32px; margin-bottom: 28px; }
         .panel-title { font-family: 'Playfair Display', serif; font-size: 20px; margin-bottom: 6px; }
         .panel-subtitle { color: var(--text-muted); font-size: 13px; margin-bottom: 24px; }
-
         .source-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 20px; }
         .source-btn { padding: 12px 16px; border-radius: 10px; cursor: pointer; text-align: left; transition: all 0.2s; }
         .source-btn-label { font-size: 13px; font-weight: 600; font-family: 'DM Sans', sans-serif; margin-bottom: 3px; }
         .source-btn-sub { font-size: 11px; color: var(--text-muted); font-family: 'JetBrains Mono'; }
-
         .search-row { display: flex; gap: 12px; margin-bottom: 16px; align-items: stretch; }
         .search-input-wrap { flex: 1; position: relative; min-width: 0; }
         .search-input-icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-muted); pointer-events: none; }
@@ -1012,11 +994,8 @@ export default function App() {
         .search-input:focus { border-color: rgba(240,165,0,0.5); }
         .count-select { padding: 13px 16px; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 10px; color: var(--text-secondary); font-size: 14px; font-family: 'JetBrains Mono', monospace; outline: none; cursor: pointer; }
         .action-btn { padding: 13px 28px; border: none; border-radius: 10px; font-size: 14px; font-weight: 600; font-family: 'DM Sans', sans-serif; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all 0.2s; white-space: nowrap; flex-shrink: 0; }
-
         .papers-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
-        .status-row { display: flex; align-items: center; gap: 8px; color: var(--gold); font-size: 13px; font-family: 'JetBrains Mono'; margin-top: 12px; animation: pulse 1.5s ease infinite; }
         .error-row { display: flex; align-items: center; gap: 8px; color: var(--red); font-size: 13px; background: rgba(248,113,113,0.08); border: 1px solid rgba(248,113,113,0.2); border-radius: 8px; padding: 10px 14px; margin-top: 12px; }
-
         .chat-container { background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; display: flex; flex-direction: column; height: 600px; overflow: hidden; }
         .chat-header { display: flex; align-items: center; justify-content: space-between; padding: 18px 24px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
         .chat-messages { flex: 1; overflow-y: auto; padding: 24px; scroll-behavior: smooth; }
@@ -1029,7 +1008,6 @@ export default function App() {
         .chat-input::placeholder { color: var(--text-muted); }
         .send-btn { width: 44px; height: 44px; flex-shrink: 0; border: none; border-radius: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
         .send-btn:disabled { cursor: not-allowed; opacity: 0.5; }
-
         @media (max-width: 768px) {
           .header-inner { padding: 0 20px; height: 56px; }
           .chunks-pill { display: none; }
@@ -1064,12 +1042,15 @@ export default function App() {
       `}</style>
 
       {/* ── MODALS ── */}
-      {showWelcome  && <WelcomeModal  onSkip={handleWelcomeSkip} onClose={handleWelcomeClose} />}
-      {showHardWall && <HardWallModal searchCount={searchCount} onClose={() => setShowHardWall(false)} />}
+      {showWelcome && !isSignedIn && (
+        <WelcomeModal onSkip={handleWelcomeSkip} onClose={handleWelcomeClose} />
+      )}
+      {/* ✅ Hard wall: shows when limit hit + not signed in. No close prop = no escape. */}
+      {showHardWall && !isSignedIn && (
+        <HardWallModal />
+      )}
 
       <div style={{ minHeight: "100vh" }}>
-
-        {/* ── HEADER ── */}
         <header className="app-header">
           <div className="header-inner">
             <div className="header-logo">
@@ -1077,8 +1058,6 @@ export default function App() {
               <span className="header-logo-text">Research<span style={{ color: "var(--gold)" }}>Mind</span></span>
             </div>
             <div className="header-actions">
-
-              {/* Search counter pill for guests */}
               {!isSignedIn && (
                 <div className="stat-pill" style={{ borderColor: searchCount >= FREE_LIMIT ? "rgba(248,113,113,0.3)" : "var(--border)" }}>
                   <Zap size={12} color={searchCount >= FREE_LIMIT ? "#f87171" : "var(--gold)"} />
@@ -1087,8 +1066,6 @@ export default function App() {
                   </span>
                 </div>
               )}
-
-              {/* User info if signed in */}
               {isSignedIn && (
                 <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                   <div className="stat-pill" style={{ borderColor: "rgba(74,222,128,0.3)" }}>
@@ -1103,8 +1080,6 @@ export default function App() {
                   >Sign out</button>
                 </div>
               )}
-
-              {/* Sign in button for guests */}
               {!isSignedIn && (
                 <SignInButton mode="modal">
                   <button style={{ padding: "6px 14px", background: "linear-gradient(135deg, var(--gold), var(--gold-dim))", border: "none", borderRadius: "8px", color: "#0a0b0f", fontSize: "12px", fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans'" }}>
@@ -1112,7 +1087,6 @@ export default function App() {
                   </button>
                 </SignInButton>
               )}
-
               <div className="stat-pill"><Database size={12} color="var(--gold)" /><span>{stats.totalPapers} papers</span></div>
               <div className="stat-pill chunks-pill"><FileText size={12} color="var(--blue)" /><span>{stats.totalChunks} chunks</span></div>
               {stats.totalChunks > 0 && (
@@ -1122,7 +1096,6 @@ export default function App() {
           </div>
         </header>
 
-        {/* ── COLD START BANNER ── */}
         {serverStatus === "waking" && (
           <div style={{ width: "100%", background: "linear-gradient(90deg, rgba(240,165,0,0.12), rgba(240,165,0,0.06))", borderBottom: "1px solid rgba(240,165,0,0.25)", padding: "10px 40px", display: "flex", alignItems: "center", justifyContent: "center", gap: "10px", animation: "fadeSlideIn 0.4s ease both" }}>
             <Loader2 size={13} color="var(--gold)" style={{ animation: "spin 1s linear infinite", flexShrink: 0 }} />
@@ -1138,7 +1111,6 @@ export default function App() {
         )}
 
         <main className="main-content">
-          {/* ── HERO ── */}
           <div className="hero-section">
             <div className="hero-badge">
               <Sparkles size={12} color="var(--gold)" />
@@ -1156,7 +1128,6 @@ export default function App() {
             </p>
           </div>
 
-          {/* ── TABS ── */}
           <div className="tab-bar">
             {[
               { id: "ingest", label: "Search Papers", icon: BookOpen },
@@ -1173,7 +1144,6 @@ export default function App() {
             ))}
           </div>
 
-          {/* ── INGEST TAB ── */}
           {tab === "ingest" && (
             <div style={{ animation: "fadeSlideIn 0.3s ease both" }}>
               <div className="panel-card">
@@ -1216,7 +1186,6 @@ export default function App() {
                 )}
                 {error && !ingestError && <div className="error-row"><AlertCircle size={14} />{error}</div>}
               </div>
-
               {papers.length > 0 && (
                 <div style={{ animation: "fadeSlideIn 0.4s ease both" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "20px" }}>
@@ -1237,10 +1206,8 @@ export default function App() {
             </div>
           )}
 
-          {/* ── UPLOAD TAB ── */}
           {tab === "upload" && <UploadTab onPaperIndexed={handlePaperIndexed} setStats={setStats} />}
 
-          {/* ── ASK TAB ── */}
           {tab === "ask" && (
             <div style={{ animation: "fadeSlideIn 0.3s ease both" }}>
               <div className="chat-container">
