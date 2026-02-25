@@ -14,7 +14,6 @@ export async function generateAnswer(question, retrievedChunks) {
     };
   }
 
-  // Step 1: Build context from retrieved chunks
   const context = retrievedChunks
     .map((chunk, index) => {
       return `
@@ -27,15 +26,22 @@ Content: ${chunk.text}
     })
     .join("\n\n");
 
-  // Step 2: Build the prompt
   const prompt = `You are an expert research assistant helping academics understand scientific papers.
 
 Your job is to answer the question below using ONLY the provided context from research papers.
 
+CRITICAL LANGUAGE RULE:
+- Detect the language of the QUESTION carefully.
+- If the question is in Hindi (whether typed in Roman script like "LLM kya hai" OR in Devanagari script like "LLM क्या है"), you MUST respond ENTIRELY in proper Hindi using Devanagari script (देवनागरी लिपि). Do NOT use Roman/English letters for Hindi words.
+- If the question is in Spanish, respond in Spanish.
+- If the question is in French, respond in French.
+- If the question is in English, respond in English.
+- Always match the user's language. Never mix languages in your response.
+
 Rules:
 - Answer based ONLY on the provided context
 - Always cite which source you used like this: [Source 1], [Source 2]
-- If the context doesn't contain enough info, say so clearly
+- If the context doesn't contain enough info, say so clearly in the same language as the question
 - Be precise and academic in tone
 - Do NOT make up information
 
@@ -44,25 +50,17 @@ ${context}
 
 QUESTION: ${question}
 
-ANSWER (with citations):`;
+ANSWER (in the same language and script as the question):`;
 
-  // Step 3: Call Groq API
   const response = await groq.chat.completions.create({
     model: "llama-3.3-70b-versatile",
-    messages: [
-      {
-        role: "user",
-        content: prompt,
-      },
-    ],
+    messages: [{ role: "user", content: prompt }],
     temperature: 0.3,
     max_tokens: 1024,
   });
 
-  // Step 4: Extract the answer
   const answer = response.choices[0].message.content;
 
-  // Step 5: Build citations list — include abstract for hover preview
   const citations = retrievedChunks.map((chunk, index) => ({
     number: index + 1,
     title: chunk.source.title,
@@ -72,7 +70,6 @@ ANSWER (with citations):`;
     abstract: chunk.source.abstract || null,
   }));
 
-  // Calculate confidence score from average chunk similarity scores
   const avgScore = retrievedChunks.reduce((sum, c) => sum + (c.score || 0), 0) / retrievedChunks.length;
   const confidence = Math.round(avgScore * 100);
 

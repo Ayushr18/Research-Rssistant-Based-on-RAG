@@ -7,7 +7,8 @@ import {
   ChevronRight, FileText, Users, Calendar,
   ExternalLink, Database, Sparkles, Hash, Trash2,
   CheckCircle2, SkipForward, Download, Scissors, Cpu,
-  Upload, X, File, Send, MessageSquare, Bot, User, Lock, Zap
+  Upload, X, File, Send, MessageSquare, Bot, User, Lock, Zap,
+  Mic, MicOff, Volume2, VolumeX
 } from "lucide-react";
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:3001/api";
@@ -23,7 +24,6 @@ const SOURCES = [
   { id: "chemrxiv", label: "ChemRxiv",         color: "#f472b6", fields: "Chemistry · Eng" },
 ];
 
-// ─── WELCOME MODAL (first visit) ───
 function WelcomeModal({ onSkip, onClose }) {
   return (
     <div style={{
@@ -55,60 +55,29 @@ function WelcomeModal({ onSkip, onClose }) {
         }}>
           <Brain size={28} color="var(--gold)" />
         </div>
-
-        <h2 style={{
-          fontFamily: "'Playfair Display', serif",
-          fontSize: "26px", fontWeight: 700,
-          color: "var(--text-primary)",
-          marginBottom: "10px", lineHeight: 1.2,
-        }}>
+        <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: "26px", fontWeight: 700, color: "var(--text-primary)", marginBottom: "10px", lineHeight: 1.2 }}>
           Welcome to <span style={{ color: "var(--gold)" }}>ResearchMind</span>
         </h2>
-        <p style={{
-          color: "var(--text-secondary)", fontSize: "14px",
-          lineHeight: 1.7, marginBottom: "32px",
-          fontFamily: "'DM Sans'",
-        }}>
+        <p style={{ color: "var(--text-secondary)", fontSize: "14px", lineHeight: 1.7, marginBottom: "32px", fontFamily: "'DM Sans'" }}>
           Your AI research assistant. Sign up free for unlimited access,
           or explore with <strong style={{ color: "var(--text-primary)" }}>10 free searches</strong> first.
         </p>
-
-        <div style={{
-          background: "rgba(240,165,0,0.05)",
-          border: "1px solid rgba(240,165,0,0.15)",
-          borderRadius: "12px", padding: "16px",
-          marginBottom: "28px", textAlign: "left",
-          display: "flex", flexDirection: "column", gap: "10px",
-        }}>
+        <div style={{ background: "rgba(240,165,0,0.05)", border: "1px solid rgba(240,165,0,0.15)", borderRadius: "12px", padding: "16px", marginBottom: "28px", textAlign: "left", display: "flex", flexDirection: "column", gap: "10px" }}>
           {[
             { icon: Zap,      text: "Unlimited questions across all papers" },
             { icon: FileText, text: "Save & export your research sessions" },
             { icon: Database, text: "Access all 4 research databases" },
           ].map(({ icon: Icon, text }) => (
             <div key={text} style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-              <div style={{
-                width: "24px", height: "24px", flexShrink: 0,
-                background: "rgba(240,165,0,0.1)", borderRadius: "6px",
-                display: "flex", alignItems: "center", justifyContent: "center",
-              }}>
+              <div style={{ width: "24px", height: "24px", flexShrink: 0, background: "rgba(240,165,0,0.1)", borderRadius: "6px", display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <Icon size={12} color="var(--gold)" />
               </div>
               <span style={{ color: "var(--text-secondary)", fontSize: "13px", fontFamily: "'DM Sans'" }}>{text}</span>
             </div>
           ))}
         </div>
-
         <SignInButton mode="modal" afterSignInUrl="/" afterSignUpUrl="/">
-          <button onClick={onClose} style={{
-            width: "100%", padding: "14px",
-            background: "linear-gradient(135deg, var(--gold), #ffcc55)",
-            border: "none", borderRadius: "12px",
-            color: "#0a0b0f", fontWeight: 700, fontSize: "15px",
-            cursor: "pointer", fontFamily: "'DM Sans'",
-            display: "flex", alignItems: "center", justifyContent: "center", gap: "8px",
-            marginBottom: "12px", transition: "opacity 0.2s",
-            boxShadow: "0 4px 20px rgba(240,165,0,0.3)",
-          }}
+          <button onClick={onClose} style={{ width: "100%", padding: "14px", background: "linear-gradient(135deg, var(--gold), #ffcc55)", border: "none", borderRadius: "12px", color: "#0a0b0f", fontWeight: 700, fontSize: "15px", cursor: "pointer", fontFamily: "'DM Sans'", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", marginBottom: "12px", transition: "opacity 0.2s", boxShadow: "0 4px 20px rgba(240,165,0,0.3)" }}
             onMouseEnter={e => e.currentTarget.style.opacity = "0.9"}
             onMouseLeave={e => e.currentTarget.style.opacity = "1"}
           >
@@ -121,79 +90,32 @@ function WelcomeModal({ onSkip, onClose }) {
             Continue with Google
           </button>
         </SignInButton>
-
-        <button onClick={onSkip} style={{
-          width: "100%", padding: "12px",
-          background: "transparent",
-          border: "1px solid var(--border)", borderRadius: "12px",
-          color: "var(--text-muted)", fontSize: "13px",
-          cursor: "pointer", fontFamily: "'DM Sans'", transition: "all 0.2s",
-        }}
+        <button onClick={onSkip} style={{ width: "100%", padding: "12px", background: "transparent", border: "1px solid var(--border)", borderRadius: "12px", color: "var(--text-muted)", fontSize: "13px", cursor: "pointer", fontFamily: "'DM Sans'", transition: "all 0.2s" }}
           onMouseEnter={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.2)"; e.currentTarget.style.color = "var(--text-secondary)"; }}
           onMouseLeave={e => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.color = "var(--text-muted)"; }}
         >
           Skip for now — use 10 free searches
         </button>
-
-        <p style={{ color: "var(--text-muted)", fontSize: "11px", marginTop: "16px", fontFamily: "'JetBrains Mono'" }}>
-          No credit card required · Free forever
-        </p>
+        <p style={{ color: "var(--text-muted)", fontSize: "11px", marginTop: "16px", fontFamily: "'JetBrains Mono'" }}>No credit card required · Free forever</p>
       </div>
     </div>
   );
 }
 
-// ─── HARD WALL MODAL (after 10 searches — NO skip, NO close, NO escape) ───
 function HardWallModal() {
   return (
-    <div style={{
-      position: "fixed", inset: 0, zIndex: 1000,
-      background: "rgba(0,0,0,0.92)",
-      backdropFilter: "blur(16px)",
-      display: "flex", alignItems: "center", justifyContent: "center",
-      padding: "20px",
-      animation: "fadeIn 0.3s ease both",
-    }}>
-      <div style={{
-        background: "linear-gradient(145deg, #12141c, #0e1018)",
-        border: "1px solid rgba(248,113,113,0.2)",
-        borderRadius: "24px",
-        padding: "40px",
-        maxWidth: "420px",
-        width: "100%",
-        boxShadow: "0 32px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.03)",
-        animation: "slideUp 0.4s cubic-bezier(0.16,1,0.3,1) both",
-        textAlign: "center",
-      }}>
-        <div style={{
-          width: "64px", height: "64px", margin: "0 auto 24px",
-          background: "rgba(248,113,113,0.1)",
-          border: "1px solid rgba(248,113,113,0.25)",
-          borderRadius: "18px",
-          display: "flex", alignItems: "center", justifyContent: "center",
-        }}>
+    <div style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,0,0,0.92)", backdropFilter: "blur(16px)", display: "flex", alignItems: "center", justifyContent: "center", padding: "20px", animation: "fadeIn 0.3s ease both" }}>
+      <div style={{ background: "linear-gradient(145deg, #12141c, #0e1018)", border: "1px solid rgba(248,113,113,0.2)", borderRadius: "24px", padding: "40px", maxWidth: "420px", width: "100%", boxShadow: "0 32px 80px rgba(0,0,0,0.7)", animation: "slideUp 0.4s cubic-bezier(0.16,1,0.3,1) both", textAlign: "center" }}>
+        <div style={{ width: "64px", height: "64px", margin: "0 auto 24px", background: "rgba(248,113,113,0.1)", border: "1px solid rgba(248,113,113,0.25)", borderRadius: "18px", display: "flex", alignItems: "center", justifyContent: "center" }}>
           <Lock size={28} color="#f87171" />
         </div>
-
-        <h2 style={{
-          fontFamily: "'Playfair Display', serif",
-          fontSize: "24px", fontWeight: 700,
-          color: "var(--text-primary)", marginBottom: "10px",
-        }}>
+        <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: "24px", fontWeight: 700, color: "var(--text-primary)", marginBottom: "10px" }}>
           You've used your {FREE_LIMIT} free searches
         </h2>
-        <p style={{
-          color: "var(--text-secondary)", fontSize: "14px",
-          lineHeight: 1.7, marginBottom: "28px", fontFamily: "'DM Sans'",
-        }}>
-          Sign up for free to keep going — unlimited questions,
-          full chat history, and PDF exports.
+        <p style={{ color: "var(--text-secondary)", fontSize: "14px", lineHeight: 1.7, marginBottom: "28px", fontFamily: "'DM Sans'" }}>
+          Sign up for free to keep going — unlimited questions, full chat history, and PDF exports.
         </p>
-
-        <div style={{
-          background: "var(--bg-secondary)", borderRadius: "12px",
-          padding: "16px", marginBottom: "28px",
-        }}>
+        <div style={{ background: "var(--bg-secondary)", borderRadius: "12px", padding: "16px", marginBottom: "28px" }}>
           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px" }}>
             <span style={{ color: "var(--text-muted)", fontSize: "12px", fontFamily: "'JetBrains Mono'" }}>Free searches used</span>
             <span style={{ color: "#f87171", fontSize: "12px", fontFamily: "'JetBrains Mono'", fontWeight: 700 }}>{FREE_LIMIT} / {FREE_LIMIT}</span>
@@ -202,20 +124,8 @@ function HardWallModal() {
             <div style={{ height: "100%", width: "100%", background: "linear-gradient(90deg, #f87171, #ef4444)", borderRadius: "999px" }} />
           </div>
         </div>
-
-        {/* Sign up — ONLY way out */}
         <SignInButton mode="modal" afterSignInUrl="/" afterSignUpUrl="/">
-          <button style={{
-            width: "100%", padding: "14px",
-            background: "linear-gradient(135deg, var(--gold), #ffcc55)",
-            border: "none", borderRadius: "12px",
-            color: "#0a0b0f", fontWeight: 700, fontSize: "15px",
-            cursor: "pointer", fontFamily: "'DM Sans'",
-            display: "flex", alignItems: "center", justifyContent: "center", gap: "8px",
-            marginBottom: "12px",
-            boxShadow: "0 4px 20px rgba(240,165,0,0.3)",
-            transition: "opacity 0.2s",
-          }}
+          <button style={{ width: "100%", padding: "14px", background: "linear-gradient(135deg, var(--gold), #ffcc55)", border: "none", borderRadius: "12px", color: "#0a0b0f", fontWeight: 700, fontSize: "15px", cursor: "pointer", fontFamily: "'DM Sans'", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", marginBottom: "12px", boxShadow: "0 4px 20px rgba(240,165,0,0.3)", transition: "opacity 0.2s" }}
             onMouseEnter={e => e.currentTarget.style.opacity = "0.9"}
             onMouseLeave={e => e.currentTarget.style.opacity = "1"}
           >
@@ -228,10 +138,7 @@ function HardWallModal() {
             Create Free Account
           </button>
         </SignInButton>
-
-        <p style={{ color: "var(--text-muted)", fontSize: "11px", fontFamily: "'JetBrains Mono'" }}>
-          Free forever · No credit card needed
-        </p>
+        <p style={{ color: "var(--text-muted)", fontSize: "11px", fontFamily: "'JetBrains Mono'" }}>Free forever · No credit card needed</p>
       </div>
     </div>
   );
@@ -248,12 +155,7 @@ function Badge({ children, color = "default" }) {
   };
   const c = colors[color] || colors.default;
   return (
-    <span style={{
-      background: c.bg, color: c.text, border: `1px solid ${c.border}`,
-      padding: "2px 10px", borderRadius: "20px",
-      fontSize: "11px", fontFamily: "'JetBrains Mono', monospace",
-      fontWeight: 500, letterSpacing: "0.03em",
-    }}>
+    <span style={{ background: c.bg, color: c.text, border: `1px solid ${c.border}`, padding: "2px 10px", borderRadius: "20px", fontSize: "11px", fontFamily: "'JetBrains Mono', monospace", fontWeight: 500, letterSpacing: "0.03em" }}>
       {children}
     </span>
   );
@@ -265,59 +167,39 @@ function SourceBadge({ source }) {
   return <Badge color={map[source] || "default"}>{labels[source] || source}</Badge>;
 }
 
-function isRealPdf(url) {
-  return url && url !== "no-pdf" && url.startsWith("http");
-}
+function isRealPdf(url) { return url && url !== "no-pdf" && url.startsWith("http"); }
 
 function ProgressBar({ progress, logs, isDone, isError }) {
   const logsEndRef = useRef(null);
   useEffect(() => { logsEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [logs]);
   const barColor = isError ? "#f87171" : isDone ? "#4ade80" : "var(--gold)";
-
   function getLogIcon(type) {
     switch (type) {
       case "paper_done": return <CheckCircle2 size={12} color="#4ade80" />;
-      case "paper_skip": return <SkipForward   size={12} color="#f87171" />;
+      case "paper_skip": return <SkipForward size={12} color="#f87171" />;
       case "done":       return <CheckCircle2 size={12} color="#4ade80" />;
-      case "error":      return <AlertCircle  size={12} color="#f87171" />;
+      case "error":      return <AlertCircle size={12} color="#f87171" />;
       default:
-        if (logs[logs.length - 1]?.message?.includes("Downloading")) return <Download size={12} color="var(--gold)" />;
-        if (logs[logs.length - 1]?.message?.includes("Chunking"))    return <Scissors  size={12} color="var(--gold)" />;
-        if (logs[logs.length - 1]?.message?.includes("Embedding"))   return <Cpu       size={12} color="var(--gold)" />;
+        if (logs[logs.length-1]?.message?.includes("Downloading")) return <Download size={12} color="var(--gold)" />;
+        if (logs[logs.length-1]?.message?.includes("Chunking"))    return <Scissors size={12} color="var(--gold)" />;
+        if (logs[logs.length-1]?.message?.includes("Embedding"))   return <Cpu size={12} color="var(--gold)" />;
         return <Loader2 size={12} color="var(--gold)" style={{ animation: "spin 1s linear infinite" }} />;
     }
   }
-
   return (
-    <div style={{
-      marginTop: "20px", background: "var(--bg-secondary)",
-      border: `1px solid ${isError ? "rgba(248,113,113,0.3)" : isDone ? "rgba(74,222,128,0.3)" : "rgba(240,165,0,0.2)"}`,
-      borderRadius: "12px", padding: "20px",
-      animation: "fadeSlideIn 0.3s ease both",
-    }}>
+    <div style={{ marginTop: "20px", background: "var(--bg-secondary)", border: `1px solid ${isError ? "rgba(248,113,113,0.3)" : isDone ? "rgba(74,222,128,0.3)" : "rgba(240,165,0,0.2)"}`, borderRadius: "12px", padding: "20px", animation: "fadeSlideIn 0.3s ease both" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
-        <span style={{ fontFamily: "'JetBrains Mono'", fontSize: "12px", color: barColor }}>
-          {isError ? "Error" : isDone ? "Complete" : "Processing..."}
-        </span>
+        <span style={{ fontFamily: "'JetBrains Mono'", fontSize: "12px", color: barColor }}>{isError ? "Error" : isDone ? "Complete" : "Processing..."}</span>
         <span style={{ fontFamily: "'JetBrains Mono'", fontSize: "13px", fontWeight: 700, color: barColor }}>{progress}%</span>
       </div>
       <div style={{ width: "100%", height: "6px", background: "var(--bg-hover)", borderRadius: "999px", overflow: "hidden", marginBottom: "16px" }}>
-        <div style={{
-          height: "100%", width: `${progress}%`,
-          background: isError ? "#f87171" : isDone ? "linear-gradient(90deg, #4ade80, #22c55e)" : "linear-gradient(90deg, var(--gold), #ffcc55)",
-          borderRadius: "999px", transition: "width 0.4s ease",
-          boxShadow: isDone ? "0 0 8px rgba(74,222,128,0.4)" : "0 0 8px rgba(240,165,0,0.3)",
-        }} />
+        <div style={{ height: "100%", width: `${progress}%`, background: isError ? "#f87171" : isDone ? "linear-gradient(90deg, #4ade80, #22c55e)" : "linear-gradient(90deg, var(--gold), #ffcc55)", borderRadius: "999px", transition: "width 0.4s ease", boxShadow: isDone ? "0 0 8px rgba(74,222,128,0.4)" : "0 0 8px rgba(240,165,0,0.3)" }} />
       </div>
       <div style={{ maxHeight: "180px", overflowY: "auto", display: "flex", flexDirection: "column", gap: "6px" }}>
         {logs.map((log, i) => (
           <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: "8px", opacity: i === logs.length - 1 ? 1 : 0.5, transition: "opacity 0.3s" }}>
             <span style={{ marginTop: "1px", flexShrink: 0 }}>{getLogIcon(log.type)}</span>
-            <span style={{
-              fontFamily: "'JetBrains Mono'", fontSize: "11px",
-              color: log.type === "paper_done" ? "#4ade80" : log.type === "paper_skip" ? "#f87171" : log.type === "error" ? "#f87171" : log.type === "done" ? "#4ade80" : "var(--text-secondary)",
-              lineHeight: 1.5,
-            }}>{log.message}</span>
+            <span style={{ fontFamily: "'JetBrains Mono'", fontSize: "11px", color: log.type === "paper_done" ? "#4ade80" : log.type === "paper_skip" ? "#f87171" : log.type === "error" ? "#f87171" : log.type === "done" ? "#4ade80" : "var(--text-secondary)", lineHeight: 1.5 }}>{log.message}</span>
           </div>
         ))}
         <div ref={logsEndRef} />
@@ -328,14 +210,9 @@ function ProgressBar({ progress, logs, isDone, isError }) {
 
 function PaperCard({ paper, index }) {
   return (
-    <div className="paper-card" style={{
-      background: "var(--bg-card)", border: "1px solid var(--border)",
-      borderRadius: "12px", padding: "20px 24px",
-      transition: "all 0.2s ease",
-      animation: `fadeSlideIn 0.4s ease ${index * 0.08}s both`,
-    }}
+    <div className="paper-card" style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "12px", padding: "20px 24px", transition: "all 0.2s ease", animation: `fadeSlideIn 0.4s ease ${index * 0.08}s both` }}
       onMouseEnter={e => { e.currentTarget.style.borderColor = "var(--border-light)"; e.currentTarget.style.transform = "translateY(-2px)"; }}
-      onMouseLeave={e => { e.currentTarget.style.borderColor = "var(--border)";       e.currentTarget.style.transform = "translateY(0)"; }}
+      onMouseLeave={e => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.transform = "translateY(0)"; }}
     >
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "10px", gap: "8px" }}>
         <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", flex: 1 }}>
@@ -343,29 +220,17 @@ function PaperCard({ paper, index }) {
           {paper.source && <SourceBadge source={paper.source} />}
         </div>
         {isRealPdf(paper.pdfUrl) ? (
-          <a href={paper.pdfUrl} target="_blank" rel="noreferrer" title="Open PDF"
-            style={{ color: "var(--text-muted)", transition: "color 0.2s", flexShrink: 0 }}
-            onMouseEnter={e => e.currentTarget.style.color = "var(--gold)"}
-            onMouseLeave={e => e.currentTarget.style.color = "var(--text-muted)"}
-          ><ExternalLink size={14} /></a>
+          <a href={paper.pdfUrl} target="_blank" rel="noreferrer" style={{ color: "var(--text-muted)", transition: "color 0.2s", flexShrink: 0 }} onMouseEnter={e => e.currentTarget.style.color = "var(--gold)"} onMouseLeave={e => e.currentTarget.style.color = "var(--text-muted)"}><ExternalLink size={14} /></a>
         ) : (
-          <span title="No PDF available" style={{ color: "var(--border)", cursor: "default", flexShrink: 0 }}><ExternalLink size={14} /></span>
+          <span style={{ color: "var(--border)", cursor: "default", flexShrink: 0 }}><ExternalLink size={14} /></span>
         )}
       </div>
-      <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: "15px", fontWeight: 600, color: "var(--text-primary)", lineHeight: 1.4, marginBottom: "10px" }}>
-        {paper.title}
-      </h3>
+      <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: "15px", fontWeight: 600, color: "var(--text-primary)", lineHeight: 1.4, marginBottom: "10px" }}>{paper.title}</h3>
       <div style={{ display: "flex", gap: "16px", marginBottom: "10px", flexWrap: "wrap" }}>
-        <span style={{ display: "flex", alignItems: "center", gap: "5px", color: "var(--text-secondary)", fontSize: "12px" }}>
-          <Users size={11} />{paper.authors?.slice(0, 2).join(", ")}{paper.authors?.length > 2 && ` +${paper.authors.length - 2}`}
-        </span>
-        <span style={{ display: "flex", alignItems: "center", gap: "5px", color: "var(--text-secondary)", fontSize: "12px" }}>
-          <Calendar size={11} />{paper.published}
-        </span>
+        <span style={{ display: "flex", alignItems: "center", gap: "5px", color: "var(--text-secondary)", fontSize: "12px" }}><Users size={11} />{paper.authors?.slice(0, 2).join(", ")}{paper.authors?.length > 2 && ` +${paper.authors.length - 2}`}</span>
+        <span style={{ display: "flex", alignItems: "center", gap: "5px", color: "var(--text-secondary)", fontSize: "12px" }}><Calendar size={11} />{paper.published}</span>
       </div>
-      <p style={{ color: "var(--text-muted)", fontSize: "12px", lineHeight: 1.6, display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
-        {paper.abstract}
-      </p>
+      <p style={{ color: "var(--text-muted)", fontSize: "12px", lineHeight: 1.6, display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{paper.abstract}</p>
     </div>
   );
 }
@@ -373,14 +238,7 @@ function PaperCard({ paper, index }) {
 function SummaryPopup({ abstract }) {
   if (!abstract || abstract === "Uploaded PDF document") return null;
   return (
-    <div style={{
-      position: "absolute", bottom: "calc(100% + 10px)", left: 0,
-      width: "340px", maxWidth: "90vw",
-      background: "#16181f", border: "1px solid rgba(240,165,0,0.3)",
-      borderRadius: "12px", padding: "16px",
-      boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
-      zIndex: 999, animation: "fadeSlideIn 0.2s ease both", pointerEvents: "none",
-    }}>
+    <div style={{ position: "absolute", bottom: "calc(100% + 10px)", left: 0, width: "340px", maxWidth: "90vw", background: "#16181f", border: "1px solid rgba(240,165,0,0.3)", borderRadius: "12px", padding: "16px", boxShadow: "0 8px 32px rgba(0,0,0,0.5)", zIndex: 999, animation: "fadeSlideIn 0.2s ease both", pointerEvents: "none" }}>
       <p style={{ color: "var(--gold)", fontSize: "10px", fontFamily: "'JetBrains Mono'", letterSpacing: "0.08em", marginBottom: "8px" }}>ABSTRACT</p>
       <p style={{ color: "var(--text-secondary)", fontSize: "12px", fontFamily: "'DM Sans'", lineHeight: 1.7, display: "-webkit-box", WebkitLineClamp: 6, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{abstract}</p>
       <div style={{ position: "absolute", bottom: "-6px", left: "24px", width: "10px", height: "10px", background: "#16181f", border: "1px solid rgba(240,165,0,0.3)", borderTop: "none", borderLeft: "none", transform: "rotate(45deg)" }} />
@@ -391,14 +249,8 @@ function SummaryPopup({ abstract }) {
 function CitationCard({ citation }) {
   const [hovered, setHovered] = useState(false);
   return (
-    <div className="citation-card" style={{
-      background: "var(--bg-secondary)", border: "1px solid var(--border)",
-      borderLeft: "3px solid var(--gold)", borderRadius: "8px", padding: "14px 18px",
-      display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px",
-      position: "relative", transition: "border-color 0.2s",
-    }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+    <div className="citation-card" style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)", borderLeft: "3px solid var(--gold)", borderRadius: "8px", padding: "14px 18px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px", position: "relative", transition: "border-color 0.2s" }}
+      onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
     >
       {hovered && citation.abstract && <SummaryPopup abstract={citation.abstract} />}
       <div style={{ flex: 1, minWidth: 0 }}>
@@ -412,21 +264,12 @@ function CitationCard({ citation }) {
         </div>
       </div>
       {isRealPdf(citation.pdfUrl) ? (
-        <a href={citation.pdfUrl} target="_blank" rel="noreferrer" style={{
-          display: "flex", alignItems: "center", gap: "5px", color: "var(--gold)", fontSize: "11px",
-          textDecoration: "none", fontFamily: "'JetBrains Mono', monospace", padding: "6px 12px",
-          border: "1px solid rgba(240,165,0,0.3)", borderRadius: "6px", whiteSpace: "nowrap",
-          transition: "all 0.2s", flexShrink: 0,
-        }}
+        <a href={citation.pdfUrl} target="_blank" rel="noreferrer" style={{ display: "flex", alignItems: "center", gap: "5px", color: "var(--gold)", fontSize: "11px", textDecoration: "none", fontFamily: "'JetBrains Mono', monospace", padding: "6px 12px", border: "1px solid rgba(240,165,0,0.3)", borderRadius: "6px", whiteSpace: "nowrap", transition: "all 0.2s", flexShrink: 0 }}
           onMouseEnter={e => e.currentTarget.style.background = "rgba(240,165,0,0.1)"}
           onMouseLeave={e => e.currentTarget.style.background = "transparent"}
         >PDF <ExternalLink size={10} /></a>
       ) : (
-        <span style={{
-          display: "flex", alignItems: "center", gap: "5px", color: "var(--text-muted)", fontSize: "11px",
-          fontFamily: "'JetBrains Mono', monospace", padding: "6px 12px",
-          border: "1px solid var(--border)", borderRadius: "6px", whiteSpace: "nowrap", cursor: "default", flexShrink: 0,
-        }}>Abstract only</span>
+        <span style={{ display: "flex", alignItems: "center", gap: "5px", color: "var(--text-muted)", fontSize: "11px", fontFamily: "'JetBrains Mono', monospace", padding: "6px 12px", border: "1px solid var(--border)", borderRadius: "6px", whiteSpace: "nowrap", cursor: "default", flexShrink: 0 }}>Abstract only</span>
       )}
     </div>
   );
@@ -435,22 +278,11 @@ function CitationCard({ citation }) {
 function ChatCitationCard({ citation }) {
   const [hovered, setHovered] = useState(false);
   return (
-    <div style={{
-      display: "flex", alignItems: "center", gap: "10px",
-      padding: "8px 12px", background: "var(--bg-secondary)", borderRadius: "8px",
-      border: `1px solid ${hovered ? "rgba(240,165,0,0.4)" : "var(--border)"}`,
-      borderLeft: "2px solid var(--gold)", position: "relative", transition: "border-color 0.2s", cursor: "default",
-    }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+    <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "8px 12px", background: "var(--bg-secondary)", borderRadius: "8px", border: `1px solid ${hovered ? "rgba(240,165,0,0.4)" : "var(--border)"}`, borderLeft: "2px solid var(--gold)", position: "relative", transition: "border-color 0.2s", cursor: "default" }}
+      onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
     >
       {hovered && citation.abstract && (
-        <div style={{
-          position: "absolute", bottom: "calc(100% + 8px)", left: 0,
-          width: "320px", maxWidth: "80vw", background: "#16181f",
-          border: "1px solid rgba(240,165,0,0.35)", borderRadius: "10px", padding: "14px",
-          boxShadow: "0 8px 32px rgba(0,0,0,0.6)", zIndex: 999, animation: "fadeSlideIn 0.2s ease both", pointerEvents: "none",
-        }}>
+        <div style={{ position: "absolute", bottom: "calc(100% + 8px)", left: 0, width: "320px", maxWidth: "80vw", background: "#16181f", border: "1px solid rgba(240,165,0,0.35)", borderRadius: "10px", padding: "14px", boxShadow: "0 8px 32px rgba(0,0,0,0.6)", zIndex: 999, animation: "fadeSlideIn 0.2s ease both", pointerEvents: "none" }}>
           <p style={{ color: "var(--gold)", fontSize: "10px", fontFamily: "'JetBrains Mono'", letterSpacing: "0.08em", marginBottom: "7px" }}>ABSTRACT</p>
           <p style={{ color: "var(--text-secondary)", fontSize: "12px", fontFamily: "'DM Sans'", lineHeight: 1.7, display: "-webkit-box", WebkitLineClamp: 5, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{citation.abstract}</p>
           <div style={{ position: "absolute", bottom: "-6px", left: "20px", width: "10px", height: "10px", background: "#16181f", border: "1px solid rgba(240,165,0,0.35)", borderTop: "none", borderLeft: "none", transform: "rotate(45deg)" }} />
@@ -465,39 +297,21 @@ function ChatCitationCard({ citation }) {
         </p>
       </div>
       {isRealPdf(citation.pdfUrl) && (
-        <a href={citation.pdfUrl} target="_blank" rel="noreferrer"
-          style={{ color: "var(--text-muted)", flexShrink: 0 }}
-          onMouseEnter={e => e.currentTarget.style.color = "var(--gold)"}
-          onMouseLeave={e => e.currentTarget.style.color = "var(--text-muted)"}
-        ><ExternalLink size={12} /></a>
+        <a href={citation.pdfUrl} target="_blank" rel="noreferrer" style={{ color: "var(--text-muted)", flexShrink: 0 }} onMouseEnter={e => e.currentTarget.style.color = "var(--gold)"} onMouseLeave={e => e.currentTarget.style.color = "var(--text-muted)"}><ExternalLink size={12} /></a>
       )}
     </div>
   );
 }
 
-function ChatMessage({ message }) {
+function ChatMessage({ message, msgIndex, onSpeak, isSpeakingThis }) {
   const isUser = message.role === "user";
   return (
-    <div style={{
-      display: "flex", flexDirection: isUser ? "row-reverse" : "row",
-      gap: "12px", alignItems: "flex-start",
-      animation: "fadeSlideIn 0.3s ease both", marginBottom: "24px",
-    }}>
-      <div style={{
-        width: "32px", height: "32px", flexShrink: 0, borderRadius: "10px",
-        background: isUser ? "linear-gradient(135deg, var(--gold), var(--gold-dim))" : "rgba(96,165,250,0.15)",
-        border: isUser ? "none" : "1px solid rgba(96,165,250,0.3)",
-        display: "flex", alignItems: "center", justifyContent: "center",
-      }}>
+    <div style={{ display: "flex", flexDirection: isUser ? "row-reverse" : "row", gap: "12px", alignItems: "flex-start", animation: "fadeSlideIn 0.3s ease both", marginBottom: "24px" }}>
+      <div style={{ width: "32px", height: "32px", flexShrink: 0, borderRadius: "10px", background: isUser ? "linear-gradient(135deg, var(--gold), var(--gold-dim))" : "rgba(96,165,250,0.15)", border: isUser ? "none" : "1px solid rgba(96,165,250,0.3)", display: "flex", alignItems: "center", justifyContent: "center" }}>
         {isUser ? <User size={15} color="#0a0b0f" /> : <Brain size={15} color="#60a5fa" />}
       </div>
       <div style={{ maxWidth: "75%", minWidth: 0 }}>
-        <div style={{
-          background: isUser ? "linear-gradient(135deg, rgba(240,165,0,0.12), rgba(240,165,0,0.06))" : "var(--bg-card)",
-          border: isUser ? "1px solid rgba(240,165,0,0.25)" : "1px solid var(--border)",
-          borderRadius: isUser ? "16px 4px 16px 16px" : "4px 16px 16px 16px",
-          padding: "14px 18px",
-        }}>
+        <div style={{ background: isUser ? "linear-gradient(135deg, rgba(240,165,0,0.12), rgba(240,165,0,0.06))" : "var(--bg-card)", border: isUser ? "1px solid rgba(240,165,0,0.25)" : "1px solid var(--border)", borderRadius: isUser ? "16px 4px 16px 16px" : "4px 16px 16px 16px", padding: "14px 18px" }}>
           {isUser ? (
             <p style={{ color: "var(--text-primary)", fontSize: "14px", lineHeight: 1.6, fontFamily: "'DM Sans'" }}>{message.question}</p>
           ) : (
@@ -518,24 +332,24 @@ function ChatMessage({ message }) {
                       const label = isHigh ? "High Confidence" : isMedium ? "Medium Confidence" : "Low Confidence";
                       const dot   = isHigh ? "🟢" : isMedium ? "🟡" : "🔴";
                       return (
-                        <span title={`Relevance score: ${c}%`} style={{
-                          display: "inline-flex", alignItems: "center", gap: "4px",
-                          background: `${color}18`, border: `1px solid ${color}40`,
-                          borderRadius: "20px", padding: "2px 10px",
-                          fontSize: "11px", fontFamily: "'JetBrains Mono'",
-                          color, cursor: "help",
-                        }}>
+                        <span title={`Relevance score: ${c}%`} style={{ display: "inline-flex", alignItems: "center", gap: "4px", background: `${color}18`, border: `1px solid ${color}40`, borderRadius: "20px", padding: "2px 10px", fontSize: "11px", fontFamily: "'JetBrains Mono'", color, cursor: "help" }}>
                           {dot} {label} · {c}%
                         </span>
                       );
                     })()}
-                    <span style={{ color: "var(--text-muted)", fontSize: "11px", fontFamily: "'JetBrains Mono'" }}>
-                      {message.citations?.length || 0} sources
-                    </span>
+                    <span style={{ color: "var(--text-muted)", fontSize: "11px", fontFamily: "'JetBrains Mono'" }}>{message.citations?.length || 0} sources</span>
+                    {message.answer && (
+                      <button
+                        onClick={() => onSpeak(message.answer, msgIndex)}
+                        title={isSpeakingThis ? "Stop speaking" : "Listen to answer"}
+                        style={{ display: "inline-flex", alignItems: "center", gap: "4px", background: isSpeakingThis ? "rgba(96,165,250,0.15)" : "transparent", border: `1px solid ${isSpeakingThis ? "rgba(96,165,250,0.4)" : "var(--border)"}`, borderRadius: "20px", padding: "2px 10px", fontSize: "11px", fontFamily: "'JetBrains Mono'", color: isSpeakingThis ? "#60a5fa" : "var(--text-muted)", cursor: "pointer", transition: "all 0.2s" }}
+                      >
+                        {isSpeakingThis ? <VolumeX size={11} /> : <Volume2 size={11} />}
+                        {isSpeakingThis ? " Stop" : " Listen"}
+                      </button>
+                    )}
                   </div>
-                  <div style={{ color: "var(--text-primary)", fontSize: "14px", lineHeight: 1.8, whiteSpace: "pre-wrap", fontFamily: "'DM Sans'" }}>
-                    {message.answer}
-                  </div>
+                  <div style={{ color: "var(--text-primary)", fontSize: "14px", lineHeight: 1.8, whiteSpace: "pre-wrap", fontFamily: "'DM Sans'" }}>{message.answer}</div>
                   {message.citations?.length > 0 && (
                     <div style={{ marginTop: "16px", borderTop: "1px solid var(--border)", paddingTop: "14px" }}>
                       <p style={{ color: "var(--text-muted)", fontSize: "11px", fontFamily: "'JetBrains Mono'", letterSpacing: "0.06em", marginBottom: "10px" }}>SOURCES</p>
@@ -606,10 +420,7 @@ function UploadTab({ onPaperIndexed, setStats }) {
     } finally { setUploading(false); }
   }
 
-  function reset() {
-    setFile(null); setTitle(""); setAuthors(""); setUploadDone(false);
-    setIndexedPaper(null); setError(""); setProgress(0);
-  }
+  function reset() { setFile(null); setTitle(""); setAuthors(""); setUploadDone(false); setIndexedPaper(null); setError(""); setProgress(0); }
 
   return (
     <div style={{ animation: "fadeSlideIn 0.3s ease both" }}>
@@ -617,17 +428,8 @@ function UploadTab({ onPaperIndexed, setStats }) {
         <h2 className="panel-title">Upload Your Own PDF</h2>
         <p className="panel-subtitle">Have a paper already? Upload it directly and start asking questions.</p>
         {!file && (
-          <div
-            onDragOver={e => { e.preventDefault(); setDragOver(true); }}
-            onDragLeave={() => setDragOver(false)}
-            onDrop={handleDrop}
-            onClick={() => fileInputRef.current?.click()}
-            style={{
-              border: `2px dashed ${dragOver ? "var(--gold)" : "var(--border)"}`,
-              borderRadius: "14px", padding: "48px 24px", textAlign: "center",
-              cursor: "pointer", transition: "all 0.2s",
-              background: dragOver ? "rgba(240,165,0,0.04)" : "var(--bg-secondary)",
-            }}
+          <div onDragOver={e => { e.preventDefault(); setDragOver(true); }} onDragLeave={() => setDragOver(false)} onDrop={handleDrop} onClick={() => fileInputRef.current?.click()}
+            style={{ border: `2px dashed ${dragOver ? "var(--gold)" : "var(--border)"}`, borderRadius: "14px", padding: "48px 24px", textAlign: "center", cursor: "pointer", transition: "all 0.2s", background: dragOver ? "rgba(240,165,0,0.04)" : "var(--bg-secondary)" }}
             onMouseEnter={e => { e.currentTarget.style.borderColor = "rgba(240,165,0,0.5)"; e.currentTarget.style.background = "rgba(240,165,0,0.03)"; }}
             onMouseLeave={e => { if (!dragOver) { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.background = "var(--bg-secondary)"; }}}
           >
@@ -643,17 +445,12 @@ function UploadTab({ onPaperIndexed, setStats }) {
         {file && !uploadDone && (
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: "12px", background: "var(--bg-secondary)", border: "1px solid rgba(240,165,0,0.3)", borderRadius: "10px", padding: "12px 16px", marginBottom: "20px" }}>
-              <div style={{ width: "36px", height: "36px", flexShrink: 0, background: "rgba(240,165,0,0.1)", borderRadius: "8px", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <File size={18} color="var(--gold)" />
-              </div>
+              <div style={{ width: "36px", height: "36px", flexShrink: 0, background: "rgba(240,165,0,0.1)", borderRadius: "8px", display: "flex", alignItems: "center", justifyContent: "center" }}><File size={18} color="var(--gold)" /></div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <p style={{ color: "var(--text-primary)", fontSize: "13px", fontWeight: 600, fontFamily: "'DM Sans'", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{file.name}</p>
                 <p style={{ color: "var(--text-muted)", fontSize: "11px", fontFamily: "'JetBrains Mono'" }}>{(file.size / 1024).toFixed(0)} KB</p>
               </div>
-              <button onClick={reset} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", padding: "4px" }}
-                onMouseEnter={e => e.currentTarget.style.color = "#f87171"}
-                onMouseLeave={e => e.currentTarget.style.color = "var(--text-muted)"}
-              ><X size={16} /></button>
+              <button onClick={reset} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", padding: "4px" }} onMouseEnter={e => e.currentTarget.style.color = "#f87171"} onMouseLeave={e => e.currentTarget.style.color = "var(--text-muted)"}><X size={16} /></button>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginBottom: "20px" }}>
               <div>
@@ -671,9 +468,7 @@ function UploadTab({ onPaperIndexed, setStats }) {
             {uploading && (
               <div style={{ marginTop: "16px" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px" }}>
-                  <span style={{ fontFamily: "'JetBrains Mono'", fontSize: "12px", color: "var(--gold)" }}>
-                    {progress < 50 ? "Uploading..." : progress < 80 ? "Extracting text..." : "Embedding chunks..."}
-                  </span>
+                  <span style={{ fontFamily: "'JetBrains Mono'", fontSize: "12px", color: "var(--gold)" }}>{progress < 50 ? "Uploading..." : progress < 80 ? "Extracting text..." : "Embedding chunks..."}</span>
                   <span style={{ fontFamily: "'JetBrains Mono'", fontSize: "12px", fontWeight: 700, color: "var(--gold)" }}>{progress}%</span>
                 </div>
                 <div style={{ width: "100%", height: "6px", background: "var(--bg-hover)", borderRadius: "999px", overflow: "hidden" }}>
@@ -687,14 +482,10 @@ function UploadTab({ onPaperIndexed, setStats }) {
         {uploadDone && indexedPaper && (
           <div style={{ animation: "fadeSlideIn 0.4s ease both" }}>
             <div style={{ background: "rgba(74,222,128,0.06)", border: "1px solid rgba(74,222,128,0.25)", borderRadius: "12px", padding: "20px", marginBottom: "20px", display: "flex", alignItems: "flex-start", gap: "14px" }}>
-              <div style={{ width: "36px", height: "36px", flexShrink: 0, background: "rgba(74,222,128,0.1)", borderRadius: "10px", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <CheckCircle2 size={20} color="#4ade80" />
-              </div>
+              <div style={{ width: "36px", height: "36px", flexShrink: 0, background: "rgba(74,222,128,0.1)", borderRadius: "10px", display: "flex", alignItems: "center", justifyContent: "center" }}><CheckCircle2 size={20} color="#4ade80" /></div>
               <div>
                 <p style={{ color: "#4ade80", fontWeight: 700, fontSize: "14px", fontFamily: "'DM Sans'", marginBottom: "4px" }}>Successfully indexed!</p>
-                <p style={{ color: "var(--text-secondary)", fontSize: "13px", fontFamily: "'DM Sans'" }}>
-                  <strong style={{ color: "var(--text-primary)" }}>{indexedPaper.title}</strong> is ready for Q&A.
-                </p>
+                <p style={{ color: "var(--text-secondary)", fontSize: "13px", fontFamily: "'DM Sans'" }}><strong style={{ color: "var(--text-primary)" }}>{indexedPaper.title}</strong> is ready for Q&A.</p>
               </div>
             </div>
             <button onClick={reset} style={{ width: "100%", padding: "11px", background: "var(--bg-secondary)", border: "1px solid var(--border)", borderRadius: "10px", color: "var(--text-secondary)", fontSize: "13px", cursor: "pointer", fontFamily: "'DM Sans'", fontWeight: 600 }}>Upload Another</button>
@@ -705,12 +496,11 @@ function UploadTab({ onPaperIndexed, setStats }) {
   );
 }
 
-// ─── MAIN APP ───
 export default function App() {
   const { isSignedIn, user } = useUser();
   const { signOut }          = useClerk();
 
-  const [tab, setTab]               = useState("ingest");
+  const [tab, setTab]                       = useState("ingest");
   const [selectedSource, setSelectedSource] = useState("arxiv");
   const [ingestQuery, setIngestQuery]       = useState("");
   const [maxResults, setMaxResults]         = useState(3);
@@ -726,42 +516,35 @@ export default function App() {
   const [ingestDone, setIngestDone]         = useState(false);
   const [ingestError, setIngestError]       = useState(false);
   const [serverStatus, setServerStatus]     = useState(null);
+  const [showWelcome,  setShowWelcome]      = useState(false);
+  const [showHardWall, setShowHardWall]     = useState(false);
+  const [searchCount,  setSearchCount]      = useState(0);
 
-  const [showWelcome,  setShowWelcome]  = useState(false);
-  const [showHardWall, setShowHardWall] = useState(false);
-  const [searchCount,  setSearchCount]  = useState(0);
+  // ─── VOICE STATE ───
+  const [isListening,    setIsListening]    = useState(false);
+  const [isSpeaking,     setIsSpeaking]     = useState(false);
+  const [speakingMsgIdx, setSpeakingMsgIdx] = useState(null);
 
   const eventSourceRef = useRef(null);
   const chatEndRef     = useRef(null);
   const inputRef       = useRef(null);
   const wakeTimerRef   = useRef(null);
+  const recognitionRef = useRef(null);
 
-  // ── On mount: check welcome + restore count ──
   useEffect(() => {
     fetchStats();
-
     if (!isSignedIn) {
       const welcomed = localStorage.getItem(STORAGE_KEY_WELCOMED);
-      if (!welcomed) {
-        setTimeout(() => setShowWelcome(true), 800);
-      }
+      if (!welcomed) setTimeout(() => setShowWelcome(true), 800);
       const count = parseInt(localStorage.getItem(STORAGE_KEY_COUNT) || "0", 10);
       setSearchCount(count);
-      // ✅ FIX 1: Auto-show hard wall on load if limit already reached
-      if (count >= FREE_LIMIT) {
-        setTimeout(() => setShowHardWall(true), 800);
-      }
+      if (count >= FREE_LIMIT) setTimeout(() => setShowHardWall(true), 800);
     }
-
     return () => clearTimeout(wakeTimerRef.current);
   }, [isSignedIn]);
 
-  // ✅ FIX 2: When user signs in, close all modals automatically
   useEffect(() => {
-    if (isSignedIn) {
-      setShowWelcome(false);
-      setShowHardWall(false);
-    }
+    if (isSignedIn) { setShowWelcome(false); setShowHardWall(false); }
   }, [isSignedIn]);
 
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
@@ -771,69 +554,138 @@ export default function App() {
     try {
       const res = await axios.get(`${API}/stats`);
       clearTimeout(wakeTimerRef.current);
-      setServerStatus(null);
-      setStats(res.data);
+      setServerStatus(null); setStats(res.data);
     } catch {
       clearTimeout(wakeTimerRef.current);
       setServerStatus("offline");
     }
   }
 
-  function handleWelcomeSkip() {
-    localStorage.setItem(STORAGE_KEY_WELCOMED, "skipped");
-    setShowWelcome(false);
+  // ─── VOICE INPUT ───
+  function startListening() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert("Voice input is not supported in this browser. Please use Chrome.");
+      return;
+    }
+    const recognition = new SpeechRecognition();
+    recognition.continuous      = false;
+    recognition.interimResults  = false;
+    recognition.lang            = ""; // auto-detect language
+    recognition.onstart  = () => setIsListening(true);
+    recognition.onend    = () => setIsListening(false);
+    recognition.onerror  = () => setIsListening(false);
+    recognition.onresult = (e) => {
+      const transcript = e.results[0][0].transcript;
+      setQuestion(transcript);
+      setTimeout(() => { if (transcript.trim()) handleAskWithQuestion(transcript.trim()); }, 300);
+    };
+    recognitionRef.current = recognition;
+    recognition.start();
   }
 
-  function handleWelcomeClose() {
-    localStorage.setItem(STORAGE_KEY_WELCOMED, "signed_in");
-    setShowWelcome(false);
+  function stopListening() { recognitionRef.current?.stop(); setIsListening(false); }
+
+  // ─── DETECT LANGUAGE FROM TEXT ───
+  function detectLang(text) {
+    // Check for Devanagari script (Hindi)
+    if (/[\u0900-\u097F]/.test(text)) return "hi";
+    // Check for Arabic script
+    if (/[\u0600-\u06FF]/.test(text)) return "ar";
+    // Check for Chinese characters
+    if (/[\u4E00-\u9FFF]/.test(text)) return "zh";
+    // Check for Japanese
+    if (/[\u3040-\u30FF]/.test(text)) return "ja";
+    // Check for Korean
+    if (/[\uAC00-\uD7AF]/.test(text)) return "ko";
+    // Check for Spanish indicators
+    if (/[áéíóúüñ¿¡]/i.test(text)) return "es";
+    // Check for French indicators
+    if (/[àâæçéèêëîïôœùûüÿ]/i.test(text)) return "fr";
+    return "en";
   }
+
+  // ─── VOICE OUTPUT — language-aware, waits for voices to load ───
+  function speakAnswer(text, idx) {
+    window.speechSynthesis.cancel();
+
+    // Toggle off if already speaking this message
+    if (speakingMsgIdx === idx && isSpeaking) {
+      setIsSpeaking(false);
+      setSpeakingMsgIdx(null);
+      return;
+    }
+
+    function doSpeak() {
+      const utterance  = new SpeechSynthesisUtterance(text);
+      utterance.rate   = 0.88;
+      utterance.pitch  = 1;
+      utterance.volume = 1;
+
+      const lang   = detectLang(text);
+      const voices = window.speechSynthesis.getVoices();
+
+      // Language → preferred voice lang code
+      const langMap = { hi: "hi", ar: "ar", zh: "zh", ja: "ja", ko: "ko", es: "es", fr: "fr", en: "en" };
+      const targetLang = langMap[lang] || "en";
+
+      // Try to find a voice matching the detected language
+      const voice = voices.find(v => v.lang.startsWith(targetLang) && v.localService)
+                 || voices.find(v => v.lang.startsWith(targetLang))
+                 || voices.find(v => v.lang.startsWith("en") && v.localService)
+                 || voices.find(v => v.lang.startsWith("en"))
+                 || voices[0];
+
+      if (voice) {
+        utterance.voice = voice;
+        utterance.lang  = voice.lang;
+      }
+
+      console.log(`🔊 Speaking in ${lang} using voice: ${voice?.name || "default"}`);
+
+      utterance.onstart = () => { setIsSpeaking(true);  setSpeakingMsgIdx(idx); };
+      utterance.onend   = () => { setIsSpeaking(false); setSpeakingMsgIdx(null); };
+      utterance.onerror = (e) => {
+        console.warn("Speech error:", e.error);
+        setIsSpeaking(false);
+        setSpeakingMsgIdx(null);
+      };
+      window.speechSynthesis.speak(utterance);
+    }
+
+    // Voices may not be loaded on first call — wait for them
+    const voices = window.speechSynthesis.getVoices();
+    if (voices.length > 0) {
+      doSpeak();
+    } else {
+      window.speechSynthesis.onvoiceschanged = () => {
+        window.speechSynthesis.onvoiceschanged = null;
+        doSpeak();
+      };
+    }
+  }
+
+  function handleWelcomeSkip()  { localStorage.setItem(STORAGE_KEY_WELCOMED, "skipped");   setShowWelcome(false); }
+  function handleWelcomeClose() { localStorage.setItem(STORAGE_KEY_WELCOMED, "signed_in"); setShowWelcome(false); }
 
   function incrementSearchCount() {
     if (isSignedIn) return true;
     const next = searchCount + 1;
     setSearchCount(next);
     localStorage.setItem(STORAGE_KEY_COUNT, String(next));
-    if (next > FREE_LIMIT) {
-      setShowHardWall(true);
-      return false;
-    }
+    if (next > FREE_LIMIT) { setShowHardWall(true); return false; }
     return true;
   }
 
-  function handleIngest() {
-    if (!ingestQuery.trim()) return;
-    setPapers([]); setError(""); setProgress(0);
-    setProgressLogs([]); setIsIngesting(true); setIngestDone(false); setIngestError(false);
-
-    if (eventSourceRef.current) eventSourceRef.current.close();
-    const url = `${API}/ingest-progress?query=${encodeURIComponent(ingestQuery)}&maxResults=${maxResults}&source=${selectedSource}`;
-    const es = new EventSource(url);
-    eventSourceRef.current = es;
-
-    es.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      if (data.progress !== undefined) setProgress(data.progress);
-      setProgressLogs(prev => [...prev, { type: data.type, message: data.message }]);
-      if (data.type === "done") { setPapers(data.papers); setStats(data.stats); setIngestDone(true); setIsIngesting(false); es.close(); }
-      if (data.type === "error") { setError(data.message); setIngestError(true); setIsIngesting(false); es.close(); }
-    };
-    es.onerror = () => { setError("Connection lost. Please try again."); setIngestError(true); setIsIngesting(false); es.close(); };
-  }
-
-  async function handleAsk() {
-    const q = question.trim();
+  async function handleAskWithQuestion(q) {
     if (!q || isAsking) return;
-
     const allowed = incrementSearchCount();
     if (!allowed) return;
-
     const userMsg = { role: "user", question: q };
     const aiMsg   = { role: "ai", loading: true };
     setMessages(prev => [...prev, userMsg, aiMsg]);
     setQuestion("");
     setIsAsking(true);
-
     try {
       const res = await axios.post(`${API}/ask`, { question: q });
       setMessages(prev => prev.map((m, i) =>
@@ -843,98 +695,65 @@ export default function App() {
       ));
     } catch (err) {
       const errMsg = err.response?.data?.error || "Something went wrong. Please try again.";
-      setMessages(prev => prev.map((m, i) =>
-        i === prev.length - 1 ? { role: "ai", error: errMsg } : m
-      ));
+      setMessages(prev => prev.map((m, i) => i === prev.length - 1 ? { role: "ai", error: errMsg } : m));
     } finally {
       setIsAsking(false);
       setTimeout(() => inputRef.current?.focus(), 100);
     }
   }
 
-  function handleClearChat() { setMessages([]); }
+  async function handleAsk() {
+    const q = question.trim();
+    if (!q || isAsking) return;
+    await handleAskWithQuestion(q);
+  }
+
+  function handleClearChat() {
+    window.speechSynthesis.cancel();
+    setIsSpeaking(false);
+    setSpeakingMsgIdx(null);
+    setMessages([]);
+  }
 
   function exportToPDF() {
     const doc = new jsPDF({ unit: "mm", format: "a4" });
     const pageW = doc.internal.pageSize.getWidth();
     const pageH = doc.internal.pageSize.getHeight();
-    const margin = 20;
-    const contentW = pageW - margin * 2;
+    const margin = 20, contentW = pageW - margin * 2;
     let y = margin;
-
     function checkNewPage(needed = 10) { if (y + needed > pageH - margin) { doc.addPage(); y = margin; } }
     function wrappedText(text, x, startY, maxWidth, lineHeight = 6) {
-      const lines = doc.splitTextToSize(text, maxWidth);
-      lines.forEach(line => { checkNewPage(lineHeight); doc.text(line, x, y); y += lineHeight; });
+      doc.splitTextToSize(text, maxWidth).forEach(line => { checkNewPage(lineHeight); doc.text(line, x, y); y += lineHeight; });
     }
-
-    doc.setFillColor(10, 11, 15);
-    doc.rect(0, 0, pageW, 28, "F");
-    doc.setFontSize(18); doc.setTextColor(240, 165, 0); doc.setFont("helvetica", "bold");
-    doc.text("ResearchMind", margin, 17);
+    doc.setFillColor(10, 11, 15); doc.rect(0, 0, pageW, 28, "F");
+    doc.setFontSize(18); doc.setTextColor(240, 165, 0); doc.setFont("helvetica", "bold"); doc.text("ResearchMind", margin, 17);
     doc.setFontSize(9); doc.setTextColor(144, 150, 168); doc.setFont("helvetica", "normal");
     doc.text("AI Research Assistant — Exported Report", margin + 52, 17);
-    const dateStr = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
-    doc.text(dateStr, pageW - margin, 17, { align: "right" });
+    doc.text(new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }), pageW - margin, 17, { align: "right" });
     y = 36;
-
-    doc.setFontSize(14); doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold");
-    doc.text("Research Q&A Session", margin, y);
-    y += 5;
-    doc.setDrawColor(240, 165, 0); doc.setLineWidth(0.5);
-    doc.line(margin, y, pageW - margin, y);
-    y += 10;
-
+    doc.setFontSize(14); doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold"); doc.text("Research Q&A Session", margin, y); y += 5;
+    doc.setDrawColor(240, 165, 0); doc.setLineWidth(0.5); doc.line(margin, y, pageW - margin, y); y += 10;
     const qaPairs = [];
     for (let i = 0; i < messages.length; i++) {
-      if (messages[i].role === "user" && messages[i + 1]?.role === "ai") {
-        qaPairs.push({ question: messages[i].question, ai: messages[i + 1] });
-      }
+      if (messages[i].role === "user" && messages[i+1]?.role === "ai") qaPairs.push({ question: messages[i].question, ai: messages[i+1] });
     }
-
     qaPairs.forEach((pair, idx) => {
       checkNewPage(20);
-      doc.setFontSize(9); doc.setTextColor(240, 165, 0); doc.setFont("helvetica", "bold");
-      doc.text(`Q${idx + 1}`, margin, y); y += 1;
-      doc.setFontSize(11); doc.setTextColor(230, 230, 230); doc.setFont("helvetica", "bold");
-      wrappedText(pair.question, margin, y, contentW, 6); y += 4;
-
+      doc.setFontSize(9); doc.setTextColor(240, 165, 0); doc.setFont("helvetica", "bold"); doc.text(`Q${idx + 1}`, margin, y); y += 1;
+      doc.setFontSize(11); doc.setTextColor(230, 230, 230); doc.setFont("helvetica", "bold"); wrappedText(pair.question, margin, y, contentW, 6); y += 4;
       if (pair.ai.answer) {
-        doc.setFontSize(9); doc.setTextColor(144, 150, 168); doc.setFont("helvetica", "bold");
-        doc.text("AI ANSWER", margin, y); y += 5;
-        doc.setFontSize(10); doc.setTextColor(200, 200, 200); doc.setFont("helvetica", "normal");
-        wrappedText(pair.ai.answer, margin, y, contentW, 5.5); y += 4;
+        doc.setFontSize(9); doc.setTextColor(144, 150, 168); doc.setFont("helvetica", "bold"); doc.text("AI ANSWER", margin, y); y += 5;
+        doc.setFontSize(10); doc.setTextColor(200, 200, 200); doc.setFont("helvetica", "normal"); wrappedText(pair.ai.answer, margin, y, contentW, 5.5); y += 4;
         if (pair.ai.citations?.length > 0) {
-          checkNewPage(10);
-          doc.setFontSize(8); doc.setTextColor(240, 165, 0); doc.setFont("helvetica", "bold");
-          doc.text("SOURCES", margin, y); y += 5;
-          pair.ai.citations.forEach(c => {
-            checkNewPage(10);
-            doc.setFontSize(8); doc.setTextColor(144, 150, 168); doc.setFont("helvetica", "normal");
-            const citLine = `[${c.number}] ${c.title} — ${c.authors?.slice(0, 60) || ""}${c.authors?.length > 60 ? "..." : ""} (${c.published})`;
-            wrappedText(citLine, margin + 3, y, contentW - 3, 5);
-          });
+          checkNewPage(10); doc.setFontSize(8); doc.setTextColor(240, 165, 0); doc.setFont("helvetica", "bold"); doc.text("SOURCES", margin, y); y += 5;
+          pair.ai.citations.forEach(c => { checkNewPage(10); doc.setFontSize(8); doc.setTextColor(144, 150, 168); doc.setFont("helvetica", "normal"); wrappedText(`[${c.number}] ${c.title} — ${c.authors?.slice(0, 60) || ""}${c.authors?.length > 60 ? "..." : ""} (${c.published})`, margin + 3, y, contentW - 3, 5); });
           y += 3;
         }
-      } else if (pair.ai.error) {
-        doc.setFontSize(9); doc.setTextColor(248, 113, 113);
-        doc.text(`Error: ${pair.ai.error}`, margin, y); y += 6;
-      }
-
-      if (idx < qaPairs.length - 1) {
-        checkNewPage(8); y += 2;
-        doc.setDrawColor(42, 45, 58); doc.setLineWidth(0.3);
-        doc.line(margin, y, pageW - margin, y); y += 8;
-      }
+      } else if (pair.ai.error) { doc.setFontSize(9); doc.setTextColor(248, 113, 113); doc.text(`Error: ${pair.ai.error}`, margin, y); y += 6; }
+      if (idx < qaPairs.length - 1) { checkNewPage(8); y += 2; doc.setDrawColor(42, 45, 58); doc.setLineWidth(0.3); doc.line(margin, y, pageW - margin, y); y += 8; }
     });
-
     const totalPages = doc.internal.getNumberOfPages();
-    for (let p = 1; p <= totalPages; p++) {
-      doc.setPage(p);
-      doc.setFontSize(8); doc.setTextColor(60, 63, 80);
-      doc.text(`researchminds.vercel.app`, margin, pageH - 8);
-      doc.text(`Page ${p} of ${totalPages}`, pageW - margin, pageH - 8, { align: "right" });
-    }
+    for (let p = 1; p <= totalPages; p++) { doc.setPage(p); doc.setFontSize(8); doc.setTextColor(60, 63, 80); doc.text(`researchminds.vercel.app`, margin, pageH - 8); doc.text(`Page ${p} of ${totalPages}`, pageW - margin, pageH - 8, { align: "right" }); }
     doc.save(`ResearchMind_Report_${Date.now()}.pdf`);
   }
 
@@ -942,15 +761,32 @@ export default function App() {
     if (!confirm("Clear all ingested papers from the database?")) return;
     try {
       await axios.delete(`${API}/clear`);
-      setStats({ totalPapers: 0, totalChunks: 0 });
-      setPapers([]); setMessages([]);
+      setStats({ totalPapers: 0, totalChunks: 0 }); setPapers([]); setMessages([]);
       setProgress(0); setProgressLogs([]); setIngestDone(false);
     } catch {}
   }
 
+  function handleIngest() {
+    if (!ingestQuery.trim()) return;
+    setPapers([]); setError(""); setProgress(0);
+    setProgressLogs([]); setIsIngesting(true); setIngestDone(false); setIngestError(false);
+    if (eventSourceRef.current) eventSourceRef.current.close();
+    const url = `${API}/ingest-progress?query=${encodeURIComponent(ingestQuery)}&maxResults=${maxResults}&source=${selectedSource}`;
+    const es = new EventSource(url);
+    eventSourceRef.current = es;
+    es.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      if (data.progress !== undefined) setProgress(data.progress);
+      setProgressLogs(prev => [...prev, { type: data.type, message: data.message }]);
+      if (data.type === "done")  { setPapers(data.papers); setStats(data.stats); setIngestDone(true); setIsIngesting(false); es.close(); }
+      if (data.type === "error") { setError(data.message); setIngestError(true); setIsIngesting(false); es.close(); }
+    };
+    es.onerror = () => { setError("Connection lost. Please try again."); setIngestError(true); setIsIngesting(false); es.close(); };
+  }
+
   function handlePaperIndexed(paper) { setPapers(prev => [paper, ...prev]); }
 
-  const activeSource = SOURCES.find(s => s.id === selectedSource);
+  const activeSource      = SOURCES.find(s => s.id === selectedSource);
   const remainingSearches = isSignedIn ? "∞" : Math.max(0, FREE_LIMIT - searchCount);
 
   return (
@@ -962,7 +798,7 @@ export default function App() {
         @keyframes slideUp     { from { opacity: 0; transform: translateY(40px) scale(0.96); } to { opacity: 1; transform: translateY(0) scale(1); } }
         @keyframes pulse       { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
         @keyframes spin        { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-
+        @keyframes micPulse    { 0%, 100% { box-shadow: 0 0 0 0 rgba(248,113,113,0.4); } 50% { box-shadow: 0 0 0 8px rgba(248,113,113,0); } }
         .app-header { border-bottom: 1px solid var(--border); background: rgba(10,11,15,0.9); backdrop-filter: blur(20px); position: sticky; top: 0; z-index: 100; }
         .header-inner { max-width: 1100px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; height: 64px; padding: 0 40px; }
         .header-logo { display: flex; align-items: center; gap: 12px; }
@@ -1008,47 +844,28 @@ export default function App() {
         .chat-input::placeholder { color: var(--text-muted); }
         .send-btn { width: 44px; height: 44px; flex-shrink: 0; border: none; border-radius: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
         .send-btn:disabled { cursor: not-allowed; opacity: 0.5; }
+        .mic-active { animation: micPulse 1.2s ease infinite; }
         @media (max-width: 768px) {
-          .header-inner { padding: 0 20px; height: 56px; }
-          .chunks-pill { display: none; }
-          .main-content { padding: 32px 20px 60px; }
-          .panel-card { padding: 24px 20px; }
-          .hero-section { margin-bottom: 40px; }
-          .source-grid { grid-template-columns: repeat(2, 1fr); }
-          .search-row { flex-wrap: wrap; }
-          .search-input-wrap { flex: 1 1 100%; }
-          .count-select { flex: 1; }
-          .ingest-btn { flex: 1; justify-content: center; }
-          .papers-grid { grid-template-columns: 1fr; }
-          .tab-btn { font-size: 13px; padding: 9px 12px; }
+          .header-inner { padding: 0 20px; height: 56px; } .chunks-pill { display: none; }
+          .main-content { padding: 32px 20px 60px; } .panel-card { padding: 24px 20px; }
+          .hero-section { margin-bottom: 40px; } .source-grid { grid-template-columns: repeat(2, 1fr); }
+          .search-row { flex-wrap: wrap; } .search-input-wrap { flex: 1 1 100%; }
+          .count-select { flex: 1; } .ingest-btn { flex: 1; justify-content: center; }
+          .papers-grid { grid-template-columns: 1fr; } .tab-btn { font-size: 13px; padding: 9px 12px; }
           .chat-container { height: 500px; }
         }
         @media (max-width: 480px) {
-          .header-inner { padding: 0 14px; }
-          .header-logo-text { font-size: 16px; }
-          .stat-pill { display: none; }
-          .main-content { padding: 24px 14px 60px; }
-          .panel-card { padding: 18px 14px; border-radius: 12px; }
-          .source-grid { gap: 8px; }
-          .source-btn-sub { display: none; }
-          .source-btn-label { font-size: 12px; }
-          .hero-section { margin-bottom: 28px; }
-          .hero-title { font-size: clamp(24px, 7vw, 36px); }
-          .hero-subtitle { font-size: 14px; }
-          .tab-btn { font-size: 11px; padding: 8px 6px; gap: 4px; }
-          .panel-title { font-size: 17px; }
-          .chat-container { height: 420px; }
+          .header-inner { padding: 0 14px; } .header-logo-text { font-size: 16px; } .stat-pill { display: none; }
+          .main-content { padding: 24px 14px 60px; } .panel-card { padding: 18px 14px; border-radius: 12px; }
+          .source-grid { gap: 8px; } .source-btn-sub { display: none; } .source-btn-label { font-size: 12px; }
+          .hero-section { margin-bottom: 28px; } .hero-title { font-size: clamp(24px, 7vw, 36px); }
+          .hero-subtitle { font-size: 14px; } .tab-btn { font-size: 11px; padding: 8px 6px; gap: 4px; }
+          .panel-title { font-size: 17px; } .chat-container { height: 420px; }
         }
       `}</style>
 
-      {/* ── MODALS ── */}
-      {showWelcome && !isSignedIn && (
-        <WelcomeModal onSkip={handleWelcomeSkip} onClose={handleWelcomeClose} />
-      )}
-      {/* ✅ Hard wall: shows when limit hit + not signed in. No close prop = no escape. */}
-      {showHardWall && !isSignedIn && (
-        <HardWallModal />
-      )}
+      {showWelcome && !isSignedIn && <WelcomeModal onSkip={handleWelcomeSkip} onClose={handleWelcomeClose} />}
+      {showHardWall && !isSignedIn && <HardWallModal />}
 
       <div style={{ minHeight: "100vh" }}>
         <header className="app-header">
@@ -1061,18 +878,14 @@ export default function App() {
               {!isSignedIn && (
                 <div className="stat-pill" style={{ borderColor: searchCount >= FREE_LIMIT ? "rgba(248,113,113,0.3)" : "var(--border)" }}>
                   <Zap size={12} color={searchCount >= FREE_LIMIT ? "#f87171" : "var(--gold)"} />
-                  <span style={{ color: searchCount >= FREE_LIMIT ? "#f87171" : "var(--text-secondary)" }}>
-                    {remainingSearches} searches left
-                  </span>
+                  <span style={{ color: searchCount >= FREE_LIMIT ? "#f87171" : "var(--text-secondary)" }}>{remainingSearches} searches left</span>
                 </div>
               )}
               {isSignedIn && (
                 <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                   <div className="stat-pill" style={{ borderColor: "rgba(74,222,128,0.3)" }}>
                     <CheckCircle2 size={12} color="#4ade80" />
-                    <span style={{ color: "#4ade80" }}>
-                      {user?.firstName || user?.emailAddresses?.[0]?.emailAddress?.split("@")[0] || "Signed in"}
-                    </span>
+                    <span style={{ color: "#4ade80" }}>{user?.firstName || user?.emailAddresses?.[0]?.emailAddress?.split("@")[0] || "Signed in"}</span>
                   </div>
                   <button onClick={() => signOut()} style={{ padding: "6px 12px", background: "transparent", border: "1px solid var(--border)", borderRadius: "8px", color: "var(--text-muted)", fontSize: "12px", cursor: "pointer", fontFamily: "'JetBrains Mono'", transition: "all 0.2s" }}
                     onMouseEnter={e => { e.currentTarget.style.borderColor = "rgba(248,113,113,0.3)"; e.currentTarget.style.color = "#f87171"; }}
@@ -1082,16 +895,12 @@ export default function App() {
               )}
               {!isSignedIn && (
                 <SignInButton mode="modal">
-                  <button style={{ padding: "6px 14px", background: "linear-gradient(135deg, var(--gold), var(--gold-dim))", border: "none", borderRadius: "8px", color: "#0a0b0f", fontSize: "12px", fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans'" }}>
-                    Sign In
-                  </button>
+                  <button style={{ padding: "6px 14px", background: "linear-gradient(135deg, var(--gold), var(--gold-dim))", border: "none", borderRadius: "8px", color: "#0a0b0f", fontSize: "12px", fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans'" }}>Sign In</button>
                 </SignInButton>
               )}
               <div className="stat-pill"><Database size={12} color="var(--gold)" /><span>{stats.totalPapers} papers</span></div>
               <div className="stat-pill chunks-pill"><FileText size={12} color="var(--blue)" /><span>{stats.totalChunks} chunks</span></div>
-              {stats.totalChunks > 0 && (
-                <button className="clear-btn" onClick={handleClear}><Trash2 size={11} /> Clear</button>
-              )}
+              {stats.totalChunks > 0 && <button className="clear-btn" onClick={handleClear}><Trash2 size={11} /> Clear</button>}
             </div>
           </div>
         </header>
@@ -1118,14 +927,9 @@ export default function App() {
             </div>
             <h1 className="hero-title">
               Understand research papers<br />
-              <span style={{ background: "linear-gradient(135deg, var(--gold), #ffcc55)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-                in seconds, not hours
-              </span>
+              <span style={{ background: "linear-gradient(135deg, var(--gold), #ffcc55)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>in seconds, not hours</span>
             </h1>
-            <p className="hero-subtitle">
-              Search across ArXiv, PubMed, Semantic Scholar and ChemRxiv — or upload your own PDF.
-              Ask questions in plain English and get cited answers.
-            </p>
+            <p className="hero-subtitle">Search across ArXiv, PubMed, Semantic Scholar and ChemRxiv — or upload your own PDF. Ask questions in plain English and get cited answers.</p>
           </div>
 
           <div className="tab-bar">
@@ -1134,11 +938,7 @@ export default function App() {
               { id: "upload", label: "Upload PDF",    icon: Upload },
               { id: "ask",    label: "Ask Questions", icon: MessageSquare },
             ].map(({ id, label, icon: Icon }) => (
-              <button key={id} className="tab-btn" onClick={() => setTab(id)} style={{
-                background: tab === id ? "linear-gradient(135deg, rgba(240,165,0,0.15), rgba(240,165,0,0.05))" : "transparent",
-                color:  tab === id ? "var(--gold)" : "var(--text-muted)",
-                border: tab === id ? "1px solid rgba(240,165,0,0.25)" : "1px solid transparent",
-              }}>
+              <button key={id} className="tab-btn" onClick={() => setTab(id)} style={{ background: tab === id ? "linear-gradient(135deg, rgba(240,165,0,0.15), rgba(240,165,0,0.05))" : "transparent", color: tab === id ? "var(--gold)" : "var(--text-muted)", border: tab === id ? "1px solid rgba(240,165,0,0.25)" : "1px solid transparent" }}>
                 <Icon size={15} />{label}
               </button>
             ))}
@@ -1154,10 +954,7 @@ export default function App() {
                   {SOURCES.map(source => {
                     const isActive = selectedSource === source.id;
                     return (
-                      <button key={source.id} className="source-btn" onClick={() => setSelectedSource(source.id)} style={{
-                        background: isActive ? `${source.color}18` : "var(--bg-secondary)",
-                        border: isActive ? `1px solid ${source.color}` : "1px solid var(--border)",
-                      }}>
+                      <button key={source.id} className="source-btn" onClick={() => setSelectedSource(source.id)} style={{ background: isActive ? `${source.color}18` : "var(--bg-secondary)", border: isActive ? `1px solid ${source.color}` : "1px solid var(--border)" }}>
                         <div className="source-btn-label" style={{ color: isActive ? source.color : "var(--text-primary)" }}>{source.label}</div>
                         <div className="source-btn-sub">{source.fields}</div>
                       </button>
@@ -1172,18 +969,12 @@ export default function App() {
                   <select className="count-select" value={maxResults} onChange={e => setMaxResults(Number(e.target.value))} disabled={isIngesting}>
                     {[2, 3, 5, 8, 10].map(n => <option key={n} value={n}>{n} papers</option>)}
                   </select>
-                  <button className="action-btn ingest-btn" onClick={handleIngest} disabled={isIngesting || !ingestQuery.trim()} style={{
-                    background: isIngesting ? "var(--bg-hover)" : "linear-gradient(135deg, var(--gold), var(--gold-dim))",
-                    color: isIngesting ? "var(--text-muted)" : "#0a0b0f",
-                    cursor: isIngesting ? "not-allowed" : "pointer",
-                  }}>
+                  <button className="action-btn ingest-btn" onClick={handleIngest} disabled={isIngesting || !ingestQuery.trim()} style={{ background: isIngesting ? "var(--bg-hover)" : "linear-gradient(135deg, var(--gold), var(--gold-dim))", color: isIngesting ? "var(--text-muted)" : "#0a0b0f", cursor: isIngesting ? "not-allowed" : "pointer" }}>
                     {isIngesting ? <Loader2 size={15} style={{ animation: "spin 1s linear infinite" }} /> : <Search size={15} />}
                     {isIngesting ? "Processing..." : "Ingest"}
                   </button>
                 </div>
-                {(isIngesting || ingestDone || ingestError) && progressLogs.length > 0 && (
-                  <ProgressBar progress={progress} logs={progressLogs} isDone={ingestDone} isError={ingestError} />
-                )}
+                {(isIngesting || ingestDone || ingestError) && progressLogs.length > 0 && <ProgressBar progress={progress} logs={progressLogs} isDone={ingestDone} isError={ingestError} />}
                 {error && !ingestError && <div className="error-row"><AlertCircle size={14} />{error}</div>}
               </div>
               {papers.length > 0 && (
@@ -1192,9 +983,7 @@ export default function App() {
                     <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: "17px" }}>Ingested Papers</h3>
                     <Badge color="green">{papers.length} indexed</Badge>
                   </div>
-                  <div className="papers-grid">
-                    {papers.map((paper, i) => <PaperCard key={paper.id} paper={paper} index={i} />)}
-                  </div>
+                  <div className="papers-grid">{papers.map((paper, i) => <PaperCard key={paper.id} paper={paper} index={i} />)}</div>
                   <div style={{ marginTop: "28px", textAlign: "center", padding: "24px", background: "var(--gold-glow)", border: "1px solid rgba(240,165,0,0.2)", borderRadius: "12px" }}>
                     <p style={{ color: "var(--text-secondary)", marginBottom: "12px", fontSize: "14px" }}>Papers indexed! Ready to answer questions.</p>
                     <button onClick={() => setTab("ask")} style={{ display: "inline-flex", alignItems: "center", gap: "8px", padding: "10px 24px", background: "linear-gradient(135deg, var(--gold), var(--gold-dim))", border: "none", borderRadius: "8px", color: "#0a0b0f", fontWeight: 600, fontSize: "14px", cursor: "pointer", fontFamily: "'DM Sans'" }}>
@@ -1220,11 +1009,7 @@ export default function App() {
                       <p style={{ fontFamily: "'Playfair Display', serif", fontSize: "15px", fontWeight: 600, color: "var(--text-primary)" }}>ResearchMind AI</p>
                       <p style={{ fontSize: "11px", color: "var(--text-muted)", fontFamily: "'JetBrains Mono'" }}>
                         {stats.totalPapers} papers · {stats.totalChunks} chunks indexed
-                        {!isSignedIn && (
-                          <span style={{ marginLeft: "8px", color: searchCount >= FREE_LIMIT ? "#f87171" : "rgba(240,165,0,0.7)" }}>
-                            · {remainingSearches} searches left
-                          </span>
-                        )}
+                        {!isSignedIn && <span style={{ marginLeft: "8px", color: searchCount >= FREE_LIMIT ? "#f87171" : "rgba(240,165,0,0.7)" }}>· {remainingSearches} searches left</span>}
                       </p>
                     </div>
                   </div>
@@ -1248,10 +1033,10 @@ export default function App() {
                       <div style={{ width: "48px", height: "48px", background: "rgba(96,165,250,0.1)", border: "1px solid rgba(96,165,250,0.2)", borderRadius: "14px", display: "flex", alignItems: "center", justifyContent: "center" }}>
                         <Brain size={22} color="#60a5fa" style={{ opacity: 0.6 }} />
                       </div>
-                      <p style={{ color: "var(--text-muted)", fontSize: "14px", fontFamily: "'DM Sans'", textAlign: "center", maxWidth: "280px", lineHeight: 1.6 }}>
+                      <p style={{ color: "var(--text-muted)", fontSize: "14px", fontFamily: "'DM Sans'", textAlign: "center", maxWidth: "320px", lineHeight: 1.6 }}>
                         {stats.totalChunks === 0
                           ? "No papers indexed yet. Go to Search Papers or Upload PDF first."
-                          : "Ask anything about your research papers. Your full conversation will stay visible here."}
+                          : "Ask anything in any language 🌍 — type or use the mic 🎤 to speak"}
                       </p>
                       {stats.totalChunks > 0 && (
                         <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", justifyContent: "center", marginTop: "8px" }}>
@@ -1265,7 +1050,15 @@ export default function App() {
                       )}
                     </div>
                   )}
-                  {messages.map((msg, i) => <ChatMessage key={i} message={msg} />)}
+                  {messages.map((msg, i) => (
+                    <ChatMessage
+                      key={i}
+                      message={msg}
+                      msgIndex={i}
+                      onSpeak={speakAnswer}
+                      isSpeakingThis={speakingMsgIdx === i && isSpeaking}
+                    />
+                  ))}
                   <div ref={chatEndRef} />
                 </div>
 
@@ -1280,10 +1073,36 @@ export default function App() {
                       e.target.style.height = Math.min(e.target.scrollHeight, 120) + "px";
                     }}
                     onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleAsk(); } }}
-                    placeholder={!isSignedIn && searchCount >= FREE_LIMIT ? "Sign up to continue asking questions..." : "Ask a question about your papers... (Enter to send, Shift+Enter for new line)"}
+                    placeholder={
+                      isListening
+                        ? "🎤 Listening... speak your question"
+                        : (!isSignedIn && searchCount >= FREE_LIMIT
+                            ? "Sign up to continue asking questions..."
+                            : "Ask in any language... (Enter to send, Shift+Enter for new line)")
+                    }
                     rows={1}
                     disabled={isAsking || (!isSignedIn && searchCount >= FREE_LIMIT)}
+                    style={{ borderColor: isListening ? "rgba(240,165,0,0.6)" : undefined }}
                   />
+
+                  {/* 🎤 MIC BUTTON */}
+                  <button
+                    className={`send-btn${isListening ? " mic-active" : ""}`}
+                    onClick={isListening ? stopListening : startListening}
+                    disabled={isAsking || (!isSignedIn && searchCount >= FREE_LIMIT)}
+                    title={isListening ? "Stop listening" : "Speak your question (any language)"}
+                    style={{
+                      background: isListening ? "rgba(248,113,113,0.2)" : "var(--bg-hover)",
+                      border: isListening ? "1px solid rgba(248,113,113,0.5)" : "1px solid var(--border)",
+                    }}
+                  >
+                    {isListening
+                      ? <MicOff size={16} color="#f87171" />
+                      : <Mic size={16} color="var(--text-muted)" />
+                    }
+                  </button>
+
+                  {/* ➤ SEND BUTTON */}
                   <button
                     className="send-btn"
                     onClick={handleAsk}
