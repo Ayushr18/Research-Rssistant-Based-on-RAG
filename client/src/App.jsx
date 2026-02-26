@@ -8,7 +8,7 @@ import {
   ExternalLink, Database, Sparkles, Hash, Trash2,
   CheckCircle2, SkipForward, Download, Scissors, Cpu,
   Upload, X, File, Send, MessageSquare, Bot, User, Lock, Zap,
-  Mic, MicOff, Volume2, VolumeX
+  Mic, MicOff, Volume2, VolumeX, Swords, Trophy, GitCompare, Minus
 } from "lucide-react";
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:3001/api";
@@ -496,6 +496,213 @@ function UploadTab({ onPaperIndexed, setStats }) {
   );
 }
 
+
+// ─── BATTLE TAB ───
+
+
+// ─── BATTLE TAB COMPONENT ───
+function BattleTab({ indexedPapers }) {
+  const [paper1, setPaper1]   = useState(null);
+  const [paper2, setPaper2]   = useState(null);
+  const [battle, setBattle]   = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError]     = useState("");
+
+  const available = indexedPapers.filter(p => p.abstract && p.abstract !== "Uploaded PDF document");
+
+  async function handleBattle() {
+    if (!paper1 || !paper2) return;
+    if (paper1.id === paper2.id) { setError("Please select two different papers."); return; }
+    setLoading(true); setError(""); setBattle(null);
+    try {
+      const res = await axios.post(`${API}/battle`, { paper1, paper2 });
+      setBattle(res.data.battle);
+    } catch (err) {
+      setError(err.response?.data?.error || "Battle failed. Please try again.");
+    } finally { setLoading(false); }
+  }
+
+  function ScoreBadge({ winner, side }) {
+    if (winner === "tie") return (
+      <span style={{display:"inline-flex",alignItems:"center",gap:"4px",background:"rgba(240,165,0,0.12)",border:"1px solid rgba(240,165,0,0.3)",borderRadius:"20px",padding:"2px 10px",fontSize:"11px",fontFamily:"'JetBrains Mono'",color:"var(--gold)"}}>
+        <Minus size={10}/> Tie
+      </span>
+    );
+    return winner === side ? (
+      <span style={{display:"inline-flex",alignItems:"center",gap:"4px",background:"rgba(74,222,128,0.12)",border:"1px solid rgba(74,222,128,0.3)",borderRadius:"20px",padding:"2px 10px",fontSize:"11px",fontFamily:"'JetBrains Mono'",color:"#4ade80"}}>
+        <Trophy size={10}/> Winner
+      </span>
+    ) : (
+      <span style={{display:"inline-flex",alignItems:"center",gap:"4px",background:"rgba(248,113,113,0.08)",border:"1px solid rgba(248,113,113,0.2)",borderRadius:"20px",padding:"2px 10px",fontSize:"11px",fontFamily:"'JetBrains Mono'",color:"#f87171"}}>
+        Loses
+      </span>
+    );
+  }
+
+  function RoundRow({ label, data }) {
+    if (!data) return null;
+    return (
+      <div style={{background:"var(--bg-secondary)",border:"1px solid var(--border)",borderRadius:"12px",padding:"16px 20px",marginBottom:"12px"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"12px"}}>
+          <span style={{color:"var(--gold)",fontSize:"11px",fontFamily:"'JetBrains Mono'",letterSpacing:"0.08em",fontWeight:700}}>{label}</span>
+          <div style={{display:"flex",gap:"6px"}}>
+            <ScoreBadge winner={data.winner} side="1"/>
+            <ScoreBadge winner={data.winner} side="2"/>
+          </div>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"10px",marginBottom:"10px"}}>
+          <div style={{background:"rgba(96,165,250,0.06)",border:"1px solid rgba(96,165,250,0.2)",borderRadius:"8px",padding:"10px 12px"}}>
+            <p style={{color:"#60a5fa",fontSize:"10px",fontFamily:"'JetBrains Mono'",marginBottom:"5px"}}>🔵 PAPER 1</p>
+            <p style={{color:"var(--text-secondary)",fontSize:"12px",fontFamily:"'DM Sans'",lineHeight:1.5}}>{data.paper1}</p>
+          </div>
+          <div style={{background:"rgba(244,114,182,0.06)",border:"1px solid rgba(244,114,182,0.2)",borderRadius:"8px",padding:"10px 12px"}}>
+            <p style={{color:"#f472b6",fontSize:"10px",fontFamily:"'JetBrains Mono'",marginBottom:"5px"}}>🔴 PAPER 2</p>
+            <p style={{color:"var(--text-secondary)",fontSize:"12px",fontFamily:"'DM Sans'",lineHeight:1.5}}>{data.paper2}</p>
+          </div>
+        </div>
+        <p style={{color:"var(--text-muted)",fontSize:"12px",fontFamily:"'DM Sans'",fontStyle:"italic",borderTop:"1px solid var(--border)",paddingTop:"8px"}}>{data.reason}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{animation:"fadeSlideIn 0.3s ease both"}}>
+      <div className="panel-card">
+        <div style={{display:"flex",alignItems:"center",gap:"12px",marginBottom:"20px"}}>
+          <div style={{width:"40px",height:"40px",background:"linear-gradient(135deg,rgba(240,165,0,0.2),rgba(240,165,0,0.05))",border:"1px solid rgba(240,165,0,0.3)",borderRadius:"12px",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+            <Swords size={20} color="var(--gold)"/>
+          </div>
+          <div>
+            <h2 style={{fontFamily:"'Playfair Display',serif",fontSize:"20px",marginBottom:"2px"}}>Paper vs Paper Battle</h2>
+            <p style={{color:"var(--text-muted)",fontSize:"12px",fontFamily:"'JetBrains Mono'"}}>AI debates two papers head-to-head across methodology, novelty, and impact</p>
+          </div>
+        </div>
+
+        {available.length < 2 ? (
+          <div style={{textAlign:"center",padding:"48px 24px",background:"var(--bg-secondary)",border:"1px solid var(--border)",borderRadius:"12px"}}>
+            <GitCompare size={36} color="var(--text-muted)" style={{margin:"0 auto 16px",display:"block",opacity:0.3}}/>
+            <p style={{color:"var(--text-secondary)",fontSize:"14px",fontFamily:"'DM Sans'",fontWeight:600,marginBottom:"6px"}}>Need at least 2 indexed papers</p>
+            <p style={{color:"var(--text-muted)",fontSize:"13px",fontFamily:"'DM Sans'"}}>Go to Search Papers and ingest at least 2 papers first.</p>
+          </div>
+        ) : (
+          <>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 60px 1fr",gap:"16px",alignItems:"start",marginBottom:"20px",minWidth:0,overflow:"hidden"}}>
+              <div style={{minWidth:0,overflow:"hidden"}}>
+                <label style={{display:"block",color:"#60a5fa",fontSize:"11px",fontFamily:"'JetBrains Mono'",letterSpacing:"0.08em",marginBottom:"8px"}}>🔵 PAPER 1</label>
+                <select value={paper1?.id||""} onChange={e=>setPaper1(available.find(p=>p.id===e.target.value)||null)}
+                  style={{width:"100%",padding:"12px 14px",background:"rgba(96,165,250,0.05)",border:`1px solid ${paper1?"rgba(96,165,250,0.5)":"var(--border)"}`,borderRadius:"10px",color:paper1?"var(--text-primary)":"var(--text-muted)",fontSize:"13px",fontFamily:"'DM Sans'",outline:"none",cursor:"pointer",transition:"border 0.2s",minWidth:0}}>
+                  <option value="">Select a paper...</option>
+                  {available.map(p=><option key={p.id} value={p.id} disabled={paper2?.id===p.id}>{p.title?.slice(0,52)}{p.title?.length>52?"...":""}</option>)}
+                </select>
+                {paper1 && <div style={{marginTop:"8px",padding:"10px 12px",background:"rgba(96,165,250,0.05)",border:"1px solid rgba(96,165,250,0.15)",borderRadius:"8px",overflow:"hidden",minWidth:0}}>
+                  <p style={{color:"#60a5fa",fontSize:"12px",fontFamily:"'DM Sans'",fontWeight:600,marginBottom:"2px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{paper1.title}</p>
+                  <p style={{color:"var(--text-muted)",fontSize:"11px",fontFamily:"'JetBrains Mono'"}}>{paper1.published}</p>
+                </div>}
+              </div>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"center",paddingTop:"28px"}}>
+                <div style={{width:"44px",height:"44px",background:"linear-gradient(135deg,rgba(240,165,0,0.15),rgba(240,165,0,0.05))",border:"1px solid rgba(240,165,0,0.35)",borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                  <span style={{color:"var(--gold)",fontSize:"13px",fontFamily:"'JetBrains Mono'",fontWeight:700}}>VS</span>
+                </div>
+              </div>
+              <div style={{minWidth:0,overflow:"hidden"}}>
+                <label style={{display:"block",color:"#f472b6",fontSize:"11px",fontFamily:"'JetBrains Mono'",letterSpacing:"0.08em",marginBottom:"8px"}}>🔴 PAPER 2</label>
+                <select value={paper2?.id||""} onChange={e=>setPaper2(available.find(p=>p.id===e.target.value)||null)}
+                  style={{width:"100%",padding:"12px 14px",background:"rgba(244,114,182,0.05)",border:`1px solid ${paper2?"rgba(244,114,182,0.5)":"var(--border)"}`,borderRadius:"10px",color:paper2?"var(--text-primary)":"var(--text-muted)",fontSize:"13px",fontFamily:"'DM Sans'",outline:"none",cursor:"pointer",transition:"border 0.2s",minWidth:0}}>
+                  <option value="">Select a paper...</option>
+                  {available.map(p=><option key={p.id} value={p.id} disabled={paper1?.id===p.id}>{p.title?.slice(0,52)}{p.title?.length>52?"...":""}</option>)}
+                </select>
+                {paper2 && <div style={{marginTop:"8px",padding:"10px 12px",background:"rgba(244,114,182,0.05)",border:"1px solid rgba(244,114,182,0.15)",borderRadius:"8px",overflow:"hidden",minWidth:0}}>
+                  <p style={{color:"#f472b6",fontSize:"12px",fontFamily:"'DM Sans'",fontWeight:600,marginBottom:"2px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{paper2.title}</p>
+                  <p style={{color:"var(--text-muted)",fontSize:"11px",fontFamily:"'JetBrains Mono'"}}>{paper2.published}</p>
+                </div>}
+              </div>
+            </div>
+
+            {error && <div className="error-row" style={{marginBottom:"16px"}}><AlertCircle size={14}/>{error}</div>}
+
+            <button onClick={handleBattle} disabled={!paper1||!paper2||loading||paper1?.id===paper2?.id}
+              style={{width:"100%",padding:"14px",background:(!paper1||!paper2||loading)?"var(--bg-hover)":"linear-gradient(135deg,var(--gold),var(--gold-dim))",border:"none",borderRadius:"10px",color:(!paper1||!paper2||loading)?"var(--text-muted)":"#0a0b0f",fontWeight:700,fontSize:"15px",cursor:(!paper1||!paper2||loading)?"not-allowed":"pointer",fontFamily:"'DM Sans'",display:"flex",alignItems:"center",justifyContent:"center",gap:"10px",transition:"all 0.2s",boxShadow:(!paper1||!paper2||loading)?"none":"0 4px 20px rgba(240,165,0,0.25)"}}>
+              {loading ? <><Loader2 size={16} style={{animation:"spin 1s linear infinite"}}/> Analyzing papers — this takes ~10 seconds...</> : <><Swords size={16}/> Start Battle</>}
+            </button>
+          </>
+        )}
+      </div>
+
+      {battle && (
+        <div style={{animation:"fadeSlideIn 0.4s ease both"}}>
+          {/* Topic + Stances */}
+          <div style={{background:"linear-gradient(135deg,rgba(240,165,0,0.07),rgba(240,165,0,0.02))",border:"1px solid rgba(240,165,0,0.2)",borderRadius:"16px",padding:"24px 28px",marginBottom:"20px"}}>
+            <div style={{textAlign:"center",marginBottom:"20px"}}>
+              <p style={{color:"var(--text-muted)",fontSize:"11px",fontFamily:"'JetBrains Mono'",letterSpacing:"0.1em",marginBottom:"6px"}}>BATTLE TOPIC</p>
+              <h3 style={{fontFamily:"'Playfair Display',serif",fontSize:"22px",color:"var(--text-primary)"}}>{battle.topic}</h3>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 40px 1fr",gap:"16px",alignItems:"center"}}>
+              <div style={{background:"rgba(96,165,250,0.07)",border:"1px solid rgba(96,165,250,0.2)",borderRadius:"10px",padding:"14px 16px"}}>
+                <p style={{color:"#60a5fa",fontSize:"10px",fontFamily:"'JetBrains Mono'",marginBottom:"8px",letterSpacing:"0.06em"}}>🔵 {paper1?.title?.slice(0,35)}{paper1?.title?.length>35?"...":""}</p>
+                <p style={{color:"var(--text-secondary)",fontSize:"12px",fontFamily:"'DM Sans'",lineHeight:1.6}}>{battle.paper1_stance}</p>
+              </div>
+              <div style={{textAlign:"center",fontSize:"20px"}}>⚔️</div>
+              <div style={{background:"rgba(244,114,182,0.07)",border:"1px solid rgba(244,114,182,0.2)",borderRadius:"10px",padding:"14px 16px"}}>
+                <p style={{color:"#f472b6",fontSize:"10px",fontFamily:"'JetBrains Mono'",marginBottom:"8px",letterSpacing:"0.06em"}}>🔴 {paper2?.title?.slice(0,35)}{paper2?.title?.length>35?"...":""}</p>
+                <p style={{color:"var(--text-secondary)",fontSize:"12px",fontFamily:"'DM Sans'",lineHeight:1.6}}>{battle.paper2_stance}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Rounds */}
+          <p style={{color:"var(--text-muted)",fontSize:"11px",fontFamily:"'JetBrains Mono'",letterSpacing:"0.1em",marginBottom:"12px"}}>BATTLE ROUNDS</p>
+          <RoundRow label="📊 METHODOLOGY" data={battle.methodology}/>
+          <RoundRow label="💡 NOVELTY" data={battle.novelty}/>
+          <RoundRow label="🌍 IMPACT" data={battle.impact}/>
+
+          {/* Agreements */}
+          {battle.agreements?.length > 0 && (
+            <div style={{background:"rgba(74,222,128,0.04)",border:"1px solid rgba(74,222,128,0.2)",borderRadius:"12px",padding:"16px 20px",marginBottom:"12px"}}>
+              <p style={{color:"#4ade80",fontSize:"11px",fontFamily:"'JetBrains Mono'",letterSpacing:"0.08em",marginBottom:"10px"}}>🤝 COMMON GROUND</p>
+              <div style={{display:"flex",flexDirection:"column",gap:"8px"}}>
+                {battle.agreements.map((a,i)=>(
+                  <div key={i} style={{display:"flex",alignItems:"flex-start",gap:"8px"}}>
+                    <CheckCircle2 size={13} color="#4ade80" style={{flexShrink:0,marginTop:"2px"}}/>
+                    <span style={{color:"var(--text-secondary)",fontSize:"13px",fontFamily:"'DM Sans'",lineHeight:1.5}}>{a}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Key Difference */}
+          {battle.key_difference && (
+            <div style={{background:"rgba(240,165,0,0.04)",border:"1px solid rgba(240,165,0,0.2)",borderRadius:"12px",padding:"14px 20px",marginBottom:"16px",display:"flex",alignItems:"flex-start",gap:"12px"}}>
+              <Swords size={15} color="var(--gold)" style={{flexShrink:0,marginTop:"2px"}}/>
+              <div>
+                <p style={{color:"var(--gold)",fontSize:"10px",fontFamily:"'JetBrains Mono'",letterSpacing:"0.08em",marginBottom:"5px"}}>KEY DIFFERENCE</p>
+                <p style={{color:"var(--text-secondary)",fontSize:"13px",fontFamily:"'DM Sans'",lineHeight:1.6}}>{battle.key_difference}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Verdict */}
+          {battle.verdict && (() => {
+            const w = battle.verdict.winner;
+            const color = w==="tie"?"var(--gold)":w==="1"?"#60a5fa":"#f472b6";
+            const bg    = w==="tie"?"rgba(240,165,0,0.08)":w==="1"?"rgba(96,165,250,0.08)":"rgba(244,114,182,0.08)";
+            const border= w==="tie"?"rgba(240,165,0,0.3)":w==="1"?"rgba(96,165,250,0.3)":"rgba(244,114,182,0.3)";
+            const title = w==="tie"?"🤝 It's a Tie!":w==="1"?`🔵 ${paper1?.title?.slice(0,38)}... Wins`:`🔴 ${paper2?.title?.slice(0,38)}... Wins`;
+            return (
+              <div style={{background:`linear-gradient(135deg,${bg},transparent)`,border:`1px solid ${border}`,borderRadius:"14px",padding:"28px",textAlign:"center"}}>
+                <Trophy size={30} color={color} style={{margin:"0 auto 12px",display:"block"}}/>
+                <p style={{fontSize:"11px",fontFamily:"'JetBrains Mono'",letterSpacing:"0.1em",color:"var(--text-muted)",marginBottom:"8px"}}>FINAL VERDICT</p>
+                <p style={{fontFamily:"'Playfair Display',serif",fontSize:"22px",fontWeight:700,color:"var(--text-primary)",marginBottom:"12px"}}>{title}</p>
+                <p style={{color:"var(--text-secondary)",fontSize:"14px",fontFamily:"'DM Sans'",lineHeight:1.8,maxWidth:"600px",margin:"0 auto"}}>{battle.verdict.summary}</p>
+              </div>
+            );
+          })()}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function App() {
   const { isSignedIn, user } = useUser();
   const { signOut }          = useClerk();
@@ -937,6 +1144,7 @@ export default function App() {
               { id: "ingest", label: "Search Papers", icon: BookOpen },
               { id: "upload", label: "Upload PDF",    icon: Upload },
               { id: "ask",    label: "Ask Questions", icon: MessageSquare },
+              { id: "battle", label: "⚔️ Battle",       icon: Swords },
             ].map(({ id, label, icon: Icon }) => (
               <button key={id} className="tab-btn" onClick={() => setTab(id)} style={{ background: tab === id ? "linear-gradient(135deg, rgba(240,165,0,0.15), rgba(240,165,0,0.05))" : "transparent", color: tab === id ? "var(--gold)" : "var(--text-muted)", border: tab === id ? "1px solid rgba(240,165,0,0.25)" : "1px solid transparent" }}>
                 <Icon size={15} />{label}
@@ -1118,6 +1326,7 @@ export default function App() {
               </div>
             </div>
           )}
+          {tab === "battle" && <BattleTab indexedPapers={papers} />}
         </main>
       </div>
     </>
