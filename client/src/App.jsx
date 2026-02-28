@@ -1279,8 +1279,10 @@ export default function App() {
         .hero-badge { display: inline-flex; align-items: center; gap: 6px; background: var(--gold-glow); border: 1px solid rgba(240,165,0,0.25); border-radius: 20px; padding: 5px 14px; margin-bottom: 24px; }
         .hero-title { font-family: 'Playfair Display', serif; font-size: clamp(28px, 5vw, 58px); font-weight: 700; line-height: 1.1; letter-spacing: -0.03em; margin-bottom: 16px; }
         .hero-subtitle { color: var(--text-secondary); font-size: 16px; max-width: 520px; margin: 0 auto; line-height: 1.7; }
-        .tab-bar { display: flex; gap: 4px; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 12px; padding: 4px; margin-bottom: 32px; animation: fadeSlideIn 0.6s ease 0.1s both; }
-        .tab-btn { flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 500; transition: all 0.2s ease; }
+        .tab-bar { display: flex; gap: 4px; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 12px; padding: 4px; margin-bottom: 32px; animation: fadeSlideIn 0.6s ease 0.1s both; overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none; }
+        .tab-label { display: inline; }
+        .tab-bar::-webkit-scrollbar { display: none; }
+        .tab-btn { flex: 1; display: flex; align-items: center; justify-content: center; gap: 7px; padding: 10px 16px; border-radius: 8px; cursor: pointer; font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 500; transition: all 0.2s ease; white-space: nowrap; }
         .panel-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; padding: 32px; margin-bottom: 28px; }
         .panel-title { font-family: 'Playfair Display', serif; font-size: 20px; margin-bottom: 6px; }
         .panel-subtitle { color: var(--text-muted); font-size: 13px; margin-bottom: 24px; }
@@ -1312,20 +1314,27 @@ export default function App() {
         .mic-active { animation: micPulse 1.2s ease infinite; }
         @media (max-width: 768px) {
           .header-inner { padding: 0 20px; height: 56px; } .chunks-pill { display: none; }
-          .main-content { padding: 32px 20px 60px; } .panel-card { padding: 24px 20px; }
-          .hero-section { margin-bottom: 40px; } .source-grid { grid-template-columns: repeat(2, 1fr); }
+          .main-content { padding: 24px 16px 60px; } .panel-card { padding: 20px 16px; }
+          .hero-section { margin-bottom: 28px; } .source-grid { grid-template-columns: repeat(2, 1fr); }
           .search-row { flex-wrap: wrap; } .search-input-wrap { flex: 1 1 100%; }
           .count-select { flex: 1; } .ingest-btn { flex: 1; justify-content: center; }
-          .papers-grid { grid-template-columns: 1fr; } .tab-btn { font-size: 13px; padding: 9px 12px; }
+          .papers-grid { grid-template-columns: 1fr; }
+          .tab-btn { font-size: 12px; padding: 10px 14px; }
           .chat-container { height: 500px; }
+          .hero-title { font-size: clamp(26px, 6vw, 42px); }
+        }
+        @media (max-width: 600px) {
+          .tab-label { display: none; }
+          .tab-btn { flex: 1; padding: 12px 8px; gap: 0; min-width: 48px; }
+          .tab-bar { gap: 2px; padding: 3px; }
         }
         @media (max-width: 480px) {
-          .header-inner { padding: 0 14px; } .header-logo-text { font-size: 16px; } .stat-pill { display: none; }
-          .main-content { padding: 24px 14px 60px; } .panel-card { padding: 18px 14px; border-radius: 12px; }
+          .header-inner { padding: 0 14px; } .header-logo-text { font-size: 15px; } .stat-pill { display: none; }
+          .main-content { padding: 16px 12px 60px; } .panel-card { padding: 16px 14px; border-radius: 12px; }
           .source-grid { gap: 8px; } .source-btn-sub { display: none; } .source-btn-label { font-size: 12px; }
-          .hero-section { margin-bottom: 28px; } .hero-title { font-size: clamp(24px, 7vw, 36px); }
-          .hero-subtitle { font-size: 14px; } .tab-btn { font-size: 11px; padding: 8px 6px; gap: 4px; }
-          .panel-title { font-size: 17px; } .chat-container { height: 420px; }
+          .hero-section { margin-bottom: 20px; } .hero-title { font-size: clamp(22px, 7vw, 32px); }
+          .hero-subtitle { font-size: 13px; } .panel-title { font-size: 17px; }
+          .chat-container { height: 420px; } .tab-bar { margin-bottom: 16px; border-radius: 10px; }
         }
       `}</style>
 
@@ -1399,14 +1408,15 @@ export default function App() {
 
           <div className="tab-bar">
             {[
-              { id: "ingest",  label: "Search Papers", icon: BookOpen },
-              { id: "upload",  label: "Upload PDF",    icon: Upload },
-              { id: "ask",     label: "Ask Questions", icon: MessageSquare },
-              { id: "battle",  label: "⚔️ Battle",      icon: Swords },
-              { id: "litreview", label: "📚 Lit Review", icon: ScrollText },
+              { id: "ingest",    label: "Search Papers", icon: BookOpen },
+              { id: "upload",    label: "Upload PDF",    icon: Upload },
+              { id: "ask",       label: "Ask",           icon: MessageSquare },
+              { id: "battle",    label: "Battle",        icon: Swords },
+              { id: "litreview", label: "Lit Review",    icon: ScrollText },
             ].map(({ id, label, icon: Icon }) => (
               <button key={id} className="tab-btn" onClick={() => setTab(id)} style={{ background: tab === id ? "linear-gradient(135deg, rgba(240,165,0,0.15), rgba(240,165,0,0.05))" : "transparent", color: tab === id ? "var(--gold)" : "var(--text-muted)", border: tab === id ? "1px solid rgba(240,165,0,0.25)" : "1px solid transparent" }}>
-                <Icon size={15} />{label}
+                <Icon size={15} />
+                <span className="tab-label">{label}</span>
               </button>
             ))}
           </div>
