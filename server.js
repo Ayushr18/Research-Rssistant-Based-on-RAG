@@ -264,6 +264,124 @@ Respond ONLY with valid JSON, no extra text, no markdown fences:
   }
 });
 
+// ─── ROUTE 7: 📚 Literature Review Generator ───
+app.post("/api/literature-review", async (req, res) => {
+  try {
+    const { wordCount = 1000, style = "thesis", sections = [] } = req.body;
+
+    // Pull all unique papers from the vector store
+    const DB_PATH = new URL("./src/database/../../data/vectorStore.json", import.meta.url);
+    const raw  = fs.readFileSync(DB_PATH, "utf-8");
+    const db   = JSON.parse(raw);
+
+    if (!db.chunks || db.chunks.length === 0) {
+      return res.status(404).json({ error: "No papers indexed yet. Please ingest papers first." });
+    }
+
+    // Deduplicate papers by paperId
+    const paperMap = new Map();
+    db.chunks.forEach(chunk => {
+      const id = chunk.metadata?.paperId;
+      if (id && !paperMap.has(id)) {
+        paperMap.set(id, {
+          id,
+          title:     chunk.metadata.title     || "Untitled",
+          authors:   chunk.metadata.authors   || "Unknown",
+          published: chunk.metadata.published || "Unknown",
+          abstract:  chunk.metadata.abstract  || "",
+          source:    chunk.metadata.source    || "unknown",
+        });
+      }
+    });
+
+    const papers = Array.from(paperMap.values());
+
+    if (papers.length < 2) {
+      return res.status(400).json({ error: "Please index at least 2 papers to generate a literature review." });
+    }
+
+    console.log(`\n📚 Generating literature review for ${papers.length} papers...`);
+    console.log(`   Style: ${style} | Words: ${wordCount} | Sections: ${sections.length}`);
+
+    const styleGuide = {
+      thesis:  "formal academic thesis style, third person, passive voice where appropriate",
+      journal: "concise journal article style, direct and precise",
+      summary: "clear accessible summary style, readable by non-experts",
+    }[style] || "formal academic style";
+
+    const activeSections = sections.length > 0 ? sections : [
+      "introduction",
+      "theoretical_background",
+      "methodology_comparison",
+      "key_findings",
+      "agreements",
+      "contradictions",
+      "research_gaps",
+      "conclusion",
+      "references",
+    ];
+
+    const sectionInstructions = {
+      introduction:            "1. INTRODUCTION\nOverview of the research area, significance, and scope of this review.",
+      theoretical_background:  "2. THEORETICAL BACKGROUND\nKey concepts, definitions, and foundational theories across the papers.",
+      methodology_comparison:  "3. METHODOLOGY COMPARISON\nCompare research methods in a markdown table with columns: Paper | Approach | Data/Dataset | Key Technique | Results.",
+      key_findings:            "4. KEY FINDINGS\nMost important findings and contributions from the papers collectively.",
+      agreements:              "5. AGREEMENTS IN LITERATURE\nWhere the papers align and reinforce each other.",
+      contradictions:          "6. CONTRADICTIONS & DEBATES\nWhere papers disagree, conflict, or offer competing views.",
+      research_gaps:           "7. RESEARCH GAPS\nWhat remains unstudied or underexplored based on this body of work.",
+      conclusion:              "8. CONCLUSION\nSynthesis of findings and future research directions.",
+      references:              "9. REFERENCES\nAll papers in APA format.",
+    };
+
+    const papersContext = papers.map((p, i) =>
+      `[${i+1}] Title: ${p.title}\n    Authors: ${Array.isArray(p.authors) ? p.authors.join(", ") : p.authors}\n    Year: ${p.published}\n    Abstract: ${p.abstract?.slice(0, 400) || "N/A"}`
+    ).join("\n\n");
+
+    const selectedSections = activeSections.map(s => sectionInstructions[s]).filter(Boolean).join("\n\n");
+
+    const prompt = `You are an expert academic writer. Write a comprehensive literature review in ${styleGuide}.
+
+Target length: approximately ${wordCount} words.
+
+PAPERS TO REVIEW:
+${papersContext}
+
+Write the literature review with EXACTLY these sections:
+${selectedSections}
+
+Important rules:
+- Cite papers inline as (Author, Year) format
+- In the methodology table use markdown table syntax
+- Be analytical, not just descriptive — compare, contrast, synthesize
+- Identify patterns and themes across papers
+- Write in continuous flowing prose (except the table)
+- APA references at the end must include all ${papers.length} papers
+- Do NOT include any preamble or explanation — start directly with the review`;
+
+    const response = await groq.chat.completions.create({
+      model: "llama-3.3-70b-versatile",
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.4,
+      max_tokens: 4000,
+    });
+
+    const review = response.choices[0].message.content;
+    console.log(`   ✅ Literature review generated! (~${review.split(" ").length} words)`);
+
+    res.json({
+      success: true,
+      review,
+      paperCount: papers.length,
+      wordCount: review.split(" ").length,
+      papers: papers.map(p => ({ title: p.title, authors: p.authors, published: p.published })),
+    });
+
+  } catch (error) {
+    console.error("Literature review error:", error);
+    res.status(500).json({ error: "Failed to generate literature review: " + error.message });
+  }
+});
+
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log(`\n🚀 Server running on port ${PORT}`);

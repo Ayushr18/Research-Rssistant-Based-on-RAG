@@ -8,7 +8,8 @@ import {
   ExternalLink, Database, Sparkles, Hash, Trash2,
   CheckCircle2, SkipForward, Download, Scissors, Cpu,
   Upload, X, File, Send, MessageSquare, Bot, User, Lock, Zap,
-  Mic, MicOff, Volume2, VolumeX, Swords, Trophy, GitCompare, Minus
+  Mic, MicOff, Volume2, VolumeX, Swords, Trophy, GitCompare, Minus,
+  ScrollText, Settings2, Copy, Check, RefreshCw
 } from "lucide-react";
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:3001/api";
@@ -499,6 +500,263 @@ function UploadTab({ onPaperIndexed, setStats }) {
 
 // ─── BATTLE TAB ───
 
+
+
+// ─── LITERATURE REVIEW TAB ───
+function LitReviewTab({ stats }) {
+  const [wordCount,  setWordCount]  = useState(1000);
+  const [style,      setStyle]      = useState("thesis");
+  const [sections,   setSections]   = useState({
+    introduction:           true,
+    theoretical_background: true,
+    methodology_comparison: true,
+    key_findings:           true,
+    agreements:             true,
+    contradictions:         true,
+    research_gaps:          true,
+    conclusion:             true,
+    references:             true,
+  });
+  const [review,     setReview]     = useState("");
+  const [loading,    setLoading]    = useState(false);
+  const [error,      setError]      = useState("");
+  const [meta,       setMeta]       = useState(null);
+  const [copied,     setCopied]     = useState(false);
+
+  const SECTION_LABELS = {
+    introduction:           "Introduction",
+    theoretical_background: "Theoretical Background",
+    methodology_comparison: "Methodology Comparison Table",
+    key_findings:           "Key Findings",
+    agreements:             "Agreements in Literature",
+    contradictions:         "Contradictions & Debates",
+    research_gaps:          "Research Gaps",
+    conclusion:             "Conclusion",
+    references:             "References (APA)",
+  };
+
+  const STYLES = [
+    { id: "thesis",  label: "Thesis",  desc: "Formal academic, third person" },
+    { id: "journal", label: "Journal", desc: "Concise, direct, precise" },
+    { id: "summary", label: "Summary", desc: "Accessible, readable" },
+  ];
+
+  function toggleSection(key) {
+    setSections(prev => ({ ...prev, [key]: !prev[key] }));
+  }
+
+  async function handleGenerate() {
+    const activeSections = Object.entries(sections).filter(([,v]) => v).map(([k]) => k);
+    if (activeSections.length === 0) { setError("Select at least one section."); return; }
+    setLoading(true); setError(""); setReview(""); setMeta(null);
+    try {
+      const res = await axios.post(`${API}/literature-review`, { wordCount, style, sections: activeSections });
+      setReview(res.data.review);
+      setMeta({ paperCount: res.data.paperCount, wordCount: res.data.wordCount, papers: res.data.papers });
+    } catch (err) {
+      setError(err.response?.data?.error || "Failed to generate. Please try again.");
+    } finally { setLoading(false); }
+  }
+
+  function handleCopy() {
+    navigator.clipboard.writeText(review);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
+  function handleExportPDF() {
+    const { jsPDF } = window.jspdf || {};
+    // Use existing jsPDF from import
+    import("jspdf").then(({ jsPDF }) => {
+      const doc = new jsPDF({ unit: "mm", format: "a4" });
+      const pageW = doc.internal.pageSize.getWidth();
+      const pageH = doc.internal.pageSize.getHeight();
+      const margin = 20, contentW = pageW - margin * 2;
+      let y = margin;
+
+      // Header
+      doc.setFillColor(10, 11, 15); doc.rect(0, 0, pageW, 28, "F");
+      doc.setFontSize(16); doc.setTextColor(240, 165, 0); doc.setFont("helvetica", "bold");
+      doc.text("ResearchMind", margin, 17);
+      doc.setFontSize(9); doc.setTextColor(144, 150, 168); doc.setFont("helvetica", "normal");
+      doc.text("Literature Review", margin + 46, 17);
+      doc.text(new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }), pageW - margin, 17, { align: "right" });
+      y = 36;
+
+      // Content
+      const lines = review.split("\n");
+      lines.forEach(line => {
+        if (y > pageH - margin) { doc.addPage(); y = margin; }
+        if (line.startsWith("# ") || line.match(/^\d+\. [A-Z]/)) {
+          doc.setFontSize(13); doc.setTextColor(240, 165, 0); doc.setFont("helvetica", "bold");
+          doc.text(line.replace(/^#+ /, ""), margin, y); y += 8;
+        } else if (line.startsWith("## ")) {
+          doc.setFontSize(11); doc.setTextColor(200, 200, 200); doc.setFont("helvetica", "bold");
+          doc.text(line.replace("## ", ""), margin, y); y += 7;
+        } else if (line.trim() === "") {
+          y += 4;
+        } else {
+          doc.setFontSize(10); doc.setTextColor(180, 180, 180); doc.setFont("helvetica", "normal");
+          const wrapped = doc.splitTextToSize(line, contentW);
+          wrapped.forEach(l => { if (y > pageH - margin) { doc.addPage(); y = margin; } doc.text(l, margin, y); y += 5.5; });
+        }
+      });
+
+      const totalPages = doc.internal.getNumberOfPages();
+      for (let p = 1; p <= totalPages; p++) {
+        doc.setPage(p); doc.setFontSize(8); doc.setTextColor(60, 63, 80);
+        doc.text("researchminds.vercel.app", margin, pageH - 8);
+        doc.text(`Page ${p} of ${totalPages}`, pageW - margin, pageH - 8, { align: "right" });
+      }
+      doc.save(`LiteratureReview_${Date.now()}.pdf`);
+    });
+  }
+
+  // Simple markdown renderer for the review output
+  function renderMarkdown(text) {
+    return text.split("\n").map((line, i) => {
+      if (line.match(/^#{1,2} /)) {
+        return <h3 key={i} style={{fontFamily:"'Playfair Display',serif",fontSize:"17px",color:"var(--gold)",marginTop:"24px",marginBottom:"8px",borderBottom:"1px solid rgba(240,165,0,0.2)",paddingBottom:"6px"}}>{line.replace(/^#{1,2} /, "")}</h3>;
+      }
+      if (line.match(/^\d+\. [A-Z]/)) {
+        return <h3 key={i} style={{fontFamily:"'Playfair Display',serif",fontSize:"16px",color:"var(--gold)",marginTop:"24px",marginBottom:"8px",borderBottom:"1px solid rgba(240,165,0,0.2)",paddingBottom:"6px"}}>{line}</h3>;
+      }
+      if (line.startsWith("|")) {
+        return <div key={i} style={{fontFamily:"'JetBrains Mono'",fontSize:"11px",color:"var(--text-secondary)",lineHeight:1.6,padding:"2px 0",borderBottom:"1px solid var(--border)"}}>{line}</div>;
+      }
+      if (line.trim() === "") return <div key={i} style={{height:"12px"}}/>;
+      return <p key={i} style={{color:"var(--text-secondary)",fontSize:"14px",fontFamily:"'DM Sans'",lineHeight:1.8,marginBottom:"4px"}}>{line}</p>;
+    });
+  }
+
+  return (
+    <div style={{animation:"fadeSlideIn 0.3s ease both"}}>
+      {/* Settings Panel */}
+      <div className="panel-card" style={{marginBottom:"20px"}}>
+        <div style={{display:"flex",alignItems:"center",gap:"12px",marginBottom:"24px"}}>
+          <div style={{width:"40px",height:"40px",background:"linear-gradient(135deg,rgba(167,139,250,0.2),rgba(167,139,250,0.05))",border:"1px solid rgba(167,139,250,0.3)",borderRadius:"12px",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+            <ScrollText size={20} color="#a78bfa"/>
+          </div>
+          <div>
+            <h2 style={{fontFamily:"'Playfair Display',serif",fontSize:"20px",marginBottom:"2px"}}>Literature Review Generator</h2>
+            <p style={{color:"var(--text-muted)",fontSize:"12px",fontFamily:"'JetBrains Mono'"}}>
+              {stats.totalPapers} papers indexed · Generate a full academic literature review in seconds
+            </p>
+          </div>
+        </div>
+
+        {stats.totalPapers < 2 ? (
+          <div style={{textAlign:"center",padding:"48px 24px",background:"var(--bg-secondary)",border:"1px solid var(--border)",borderRadius:"12px"}}>
+            <ScrollText size={36} color="var(--text-muted)" style={{margin:"0 auto 16px",display:"block",opacity:0.3}}/>
+            <p style={{color:"var(--text-secondary)",fontSize:"14px",fontFamily:"'DM Sans'",fontWeight:600,marginBottom:"6px"}}>Need at least 2 indexed papers</p>
+            <p style={{color:"var(--text-muted)",fontSize:"13px",fontFamily:"'DM Sans'"}}>Go to Search Papers and ingest at least 2 papers first.</p>
+          </div>
+        ) : (
+          <>
+            {/* Style Selector */}
+            <div style={{marginBottom:"24px"}}>
+              <label style={{display:"block",color:"var(--text-secondary)",fontSize:"11px",fontFamily:"'JetBrains Mono'",letterSpacing:"0.08em",marginBottom:"10px"}}>WRITING STYLE</label>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"10px"}}>
+                {STYLES.map(s => (
+                  <button key={s.id} onClick={() => setStyle(s.id)}
+                    style={{padding:"12px 16px",background:style===s.id?"rgba(167,139,250,0.1)":"var(--bg-secondary)",border:`1px solid ${style===s.id?"rgba(167,139,250,0.5)":"var(--border)"}`,borderRadius:"10px",cursor:"pointer",textAlign:"left",transition:"all 0.2s"}}>
+                    <p style={{color:style===s.id?"#a78bfa":"var(--text-primary)",fontSize:"13px",fontFamily:"'DM Sans'",fontWeight:600,marginBottom:"3px"}}>{s.label}</p>
+                    <p style={{color:"var(--text-muted)",fontSize:"11px",fontFamily:"'JetBrains Mono'"}}>{s.desc}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Word Count Slider */}
+            <div style={{marginBottom:"24px"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"10px"}}>
+                <label style={{color:"var(--text-secondary)",fontSize:"11px",fontFamily:"'JetBrains Mono'",letterSpacing:"0.08em"}}>TARGET WORD COUNT</label>
+                <span style={{color:"#a78bfa",fontSize:"13px",fontFamily:"'JetBrains Mono'",fontWeight:700}}>{wordCount.toLocaleString()} words</span>
+              </div>
+              <input type="range" min={500} max={3000} step={250} value={wordCount} onChange={e => setWordCount(Number(e.target.value))}
+                style={{width:"100%",accentColor:"#a78bfa",height:"4px",cursor:"pointer"}}/>
+              <div style={{display:"flex",justifyContent:"space-between",marginTop:"6px"}}>
+                <span style={{color:"var(--text-muted)",fontSize:"11px",fontFamily:"'JetBrains Mono'"}}>500</span>
+                <span style={{color:"var(--text-muted)",fontSize:"11px",fontFamily:"'JetBrains Mono'"}}>3,000</span>
+              </div>
+            </div>
+
+            {/* Section Toggles */}
+            <div style={{marginBottom:"24px"}}>
+              <label style={{display:"block",color:"var(--text-secondary)",fontSize:"11px",fontFamily:"'JetBrains Mono'",letterSpacing:"0.08em",marginBottom:"10px"}}>INCLUDE SECTIONS</label>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:"8px"}}>
+                {Object.entries(SECTION_LABELS).map(([key, label]) => (
+                  <button key={key} onClick={() => toggleSection(key)}
+                    style={{display:"flex",alignItems:"center",gap:"10px",padding:"10px 14px",background:sections[key]?"rgba(167,139,250,0.08)":"var(--bg-secondary)",border:`1px solid ${sections[key]?"rgba(167,139,250,0.35)":"var(--border)"}`,borderRadius:"8px",cursor:"pointer",transition:"all 0.2s",textAlign:"left"}}>
+                    <div style={{width:"18px",height:"18px",flexShrink:0,borderRadius:"5px",background:sections[key]?"#a78bfa":"var(--bg-hover)",border:`1px solid ${sections[key]?"#a78bfa":"var(--border)"}`,display:"flex",alignItems:"center",justifyContent:"center",transition:"all 0.2s"}}>
+                      {sections[key] && <Check size={11} color="#0a0b0f" strokeWidth={3}/>}
+                    </div>
+                    <span style={{color:sections[key]?"var(--text-primary)":"var(--text-muted)",fontSize:"12px",fontFamily:"'DM Sans'",fontWeight:sections[key]?600:400}}>{label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {error && <div className="error-row" style={{marginBottom:"16px"}}><AlertCircle size={14}/>{error}</div>}
+
+            <button onClick={handleGenerate} disabled={loading || stats.totalPapers < 2}
+              style={{width:"100%",padding:"15px",background:loading?"var(--bg-hover)":"linear-gradient(135deg,#a78bfa,#7c3aed)",border:"none",borderRadius:"10px",color:loading?"var(--text-muted)":"#fff",fontWeight:700,fontSize:"15px",cursor:loading?"not-allowed":"pointer",fontFamily:"'DM Sans'",display:"flex",alignItems:"center",justifyContent:"center",gap:"10px",transition:"all 0.2s",boxShadow:loading?"none":"0 4px 20px rgba(124,58,237,0.3)"}}>
+              {loading
+                ? <><Loader2 size={16} style={{animation:"spin 1s linear infinite"}}/> Generating your literature review — takes ~20 seconds...</>
+                : <><ScrollText size={16}/> Generate Literature Review ({stats.totalPapers} papers)</>
+              }
+            </button>
+          </>
+        )}
+      </div>
+
+      {/* Review Output */}
+      {review && (
+        <div style={{animation:"fadeSlideIn 0.4s ease both"}}>
+          {/* Meta bar */}
+          {meta && (
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"14px 20px",background:"rgba(167,139,250,0.06)",border:"1px solid rgba(167,139,250,0.2)",borderRadius:"12px",marginBottom:"16px",flexWrap:"wrap",gap:"10px"}}>
+              <div style={{display:"flex",gap:"16px",flexWrap:"wrap"}}>
+                <span style={{display:"flex",alignItems:"center",gap:"6px",color:"#a78bfa",fontSize:"12px",fontFamily:"'JetBrains Mono'"}}>
+                  <FileText size={12}/> {meta.paperCount} papers
+                </span>
+                <span style={{display:"flex",alignItems:"center",gap:"6px",color:"var(--text-secondary)",fontSize:"12px",fontFamily:"'JetBrains Mono'"}}>
+                  ~{meta.wordCount} words
+                </span>
+                <span style={{display:"flex",alignItems:"center",gap:"6px",color:"var(--text-secondary)",fontSize:"12px",fontFamily:"'JetBrains Mono'"}}>
+                  {style} style
+                </span>
+              </div>
+              <div style={{display:"flex",gap:"8px"}}>
+                <button onClick={handleGenerate}
+                  style={{display:"flex",alignItems:"center",gap:"5px",padding:"6px 12px",background:"transparent",border:"1px solid var(--border)",borderRadius:"8px",color:"var(--text-muted)",fontSize:"11px",cursor:"pointer",fontFamily:"'JetBrains Mono'",transition:"all 0.2s"}}
+                  onMouseEnter={e=>{e.currentTarget.style.borderColor="rgba(167,139,250,0.4)";e.currentTarget.style.color="#a78bfa"}}
+                  onMouseLeave={e=>{e.currentTarget.style.borderColor="var(--border)";e.currentTarget.style.color="var(--text-muted)"}}>
+                  <RefreshCw size={11}/> Regenerate
+                </button>
+                <button onClick={handleCopy}
+                  style={{display:"flex",alignItems:"center",gap:"5px",padding:"6px 12px",background:copied?"rgba(74,222,128,0.1)":"rgba(167,139,250,0.1)",border:`1px solid ${copied?"rgba(74,222,128,0.3)":"rgba(167,139,250,0.3)"}`,borderRadius:"8px",color:copied?"#4ade80":"#a78bfa",fontSize:"11px",cursor:"pointer",fontFamily:"'JetBrains Mono'",transition:"all 0.2s"}}>
+                  {copied ? <><Check size={11}/> Copied!</> : <><Copy size={11}/> Copy</>}
+                </button>
+                <button onClick={handleExportPDF}
+                  style={{display:"flex",alignItems:"center",gap:"5px",padding:"6px 12px",background:"rgba(240,165,0,0.1)",border:"1px solid rgba(240,165,0,0.3)",borderRadius:"8px",color:"var(--gold)",fontSize:"11px",cursor:"pointer",fontFamily:"'JetBrains Mono'",transition:"all 0.2s"}}
+                  onMouseEnter={e=>e.currentTarget.style.background="rgba(240,165,0,0.18)"}
+                  onMouseLeave={e=>e.currentTarget.style.background="rgba(240,165,0,0.1)"}>
+                  <Download size={11}/> Export PDF
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Review content */}
+          <div style={{background:"var(--bg-card)",border:"1px solid var(--border)",borderRadius:"16px",padding:"36px 40px",lineHeight:1.8}}>
+            {renderMarkdown(review)}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 // ─── BATTLE TAB COMPONENT ───
 function BattleTab({ indexedPapers }) {
@@ -1141,10 +1399,11 @@ export default function App() {
 
           <div className="tab-bar">
             {[
-              { id: "ingest", label: "Search Papers", icon: BookOpen },
-              { id: "upload", label: "Upload PDF",    icon: Upload },
-              { id: "ask",    label: "Ask Questions", icon: MessageSquare },
-              { id: "battle", label: "⚔️ Battle",       icon: Swords },
+              { id: "ingest",  label: "Search Papers", icon: BookOpen },
+              { id: "upload",  label: "Upload PDF",    icon: Upload },
+              { id: "ask",     label: "Ask Questions", icon: MessageSquare },
+              { id: "battle",  label: "⚔️ Battle",      icon: Swords },
+              { id: "litreview", label: "📚 Lit Review", icon: ScrollText },
             ].map(({ id, label, icon: Icon }) => (
               <button key={id} className="tab-btn" onClick={() => setTab(id)} style={{ background: tab === id ? "linear-gradient(135deg, rgba(240,165,0,0.15), rgba(240,165,0,0.05))" : "transparent", color: tab === id ? "var(--gold)" : "var(--text-muted)", border: tab === id ? "1px solid rgba(240,165,0,0.25)" : "1px solid transparent" }}>
                 <Icon size={15} />{label}
@@ -1327,6 +1586,7 @@ export default function App() {
             </div>
           )}
           {tab === "battle" && <BattleTab indexedPapers={papers} />}
+          {tab === "litreview" && <LitReviewTab stats={stats} />}
         </main>
       </div>
     </>
