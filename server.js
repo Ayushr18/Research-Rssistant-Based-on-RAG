@@ -382,6 +382,236 @@ Important rules:
   }
 });
 
+// ─── DIGEST HELPERS ───
+import { Resend } from "resend";
+import cron from "node-cron";
+
+const resend = new Resend(process.env.RESEND_API_KEY);
+
+const SUBSCRIBERS_PATH = new URL("./data/subscribers.json", import.meta.url);
+
+function loadSubscribers() {
+  try {
+    if (!fs.existsSync(SUBSCRIBERS_PATH)) return { subscribers: [] };
+    return JSON.parse(fs.readFileSync(SUBSCRIBERS_PATH, "utf-8"));
+  } catch { return { subscribers: [] }; }
+}
+
+function saveSubscribers(data) {
+  const dir = new URL("./data/", import.meta.url);
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(SUBSCRIBERS_PATH, JSON.stringify(data, null, 2));
+}
+
+function buildEmailHTML(name, topic, papers) {
+  const paperRows = papers.map((p, i) => `
+    <div style="margin-bottom:32px;padding:24px;background:#0f1117;border-radius:12px;border:1px solid #1e2030;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+        <span style="background:#f0a500;color:#0a0b0f;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;font-family:monospace;">#${i+1}</span>
+        <span style="color:#6b7280;font-size:11px;font-family:monospace;">${p.source?.toUpperCase() || "ARXIV"} · ${p.published || ""}</span>
+      </div>
+      <h3 style="color:#f0f0f0;font-size:15px;margin:8px 0;line-height:1.5;">${p.title}</h3>
+      <p style="color:#9ca3af;font-size:12px;margin-bottom:12px;font-family:monospace;">${Array.isArray(p.authors) ? p.authors.slice(0,3).join(", ") : p.authors}${p.authors?.length > 3 ? " et al." : ""}</p>
+      <div style="background:#161b27;border-left:3px solid #f0a500;padding:12px 16px;border-radius:0 8px 8px 0;margin-bottom:12px;">
+        <p style="color:#d1d5db;font-size:13px;line-height:1.7;margin:0;">${p.summary || p.abstract?.slice(0, 300) || "No summary available."}...</p>
+      </div>
+      ${p.pdfUrl && p.pdfUrl !== "no-pdf" ? `<a href="${p.pdfUrl}" style="display:inline-flex;align-items:center;gap:6px;color:#f0a500;font-size:12px;text-decoration:none;font-family:monospace;border:1px solid rgba(240,165,0,0.3);padding:6px 14px;border-radius:6px;">Read Paper →</a>` : ""}
+    </div>
+  `).join("");
+
+  return `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#0a0b0f;font-family:'Segoe UI',Arial,sans-serif;">
+  <div style="max-width:600px;margin:0 auto;padding:32px 16px;">
+
+    <!-- Header -->
+    <div style="text-align:center;margin-bottom:32px;">
+      <div style="display:inline-flex;align-items:center;gap:10px;background:#111318;border:1px solid #1e2030;border-radius:12px;padding:12px 20px;">
+        <span style="font-size:20px;">🧠</span>
+        <span style="color:#f0a500;font-size:18px;font-weight:700;">ResearchMind</span>
+        <span style="color:#6b7280;font-size:12px;font-family:monospace;">Weekly Digest</span>
+      </div>
+    </div>
+
+    <!-- Hero -->
+    <div style="background:linear-gradient(135deg,rgba(240,165,0,0.1),rgba(240,165,0,0.02));border:1px solid rgba(240,165,0,0.2);border-radius:16px;padding:28px;text-align:center;margin-bottom:32px;">
+      <p style="color:#9ca3af;font-size:12px;font-family:monospace;letter-spacing:0.1em;margin-bottom:8px;">WEEKLY RESEARCH DIGEST</p>
+      <h1 style="color:#f0f0f0;font-size:22px;margin:0 0 8px;line-height:1.4;">Hey ${name} 👋</h1>
+      <p style="color:#9ca3af;font-size:14px;margin:0;">Here are the <strong style="color:#f0a500;">5 most important papers</strong> published this week on <strong style="color:#f0f0f0;">${topic}</strong></p>
+    </div>
+
+    <!-- Papers -->
+    ${paperRows}
+
+    <!-- CTA -->
+    <div style="text-align:center;margin:32px 0;">
+      <a href="https://researchminds.vercel.app" style="display:inline-block;background:linear-gradient(135deg,#f0a500,#d4920a);color:#0a0b0f;font-weight:700;font-size:14px;padding:14px 32px;border-radius:10px;text-decoration:none;">Open ResearchMind →</a>
+    </div>
+
+    <!-- Footer -->
+    <div style="border-top:1px solid #1e2030;padding-top:20px;text-align:center;">
+      <p style="color:#4b5563;font-size:11px;font-family:monospace;margin:0 0 8px;">You're receiving this because you subscribed to ResearchMind Weekly Digest.</p>
+      <p style="color:#4b5563;font-size:11px;font-family:monospace;margin:0;">researchminds.vercel.app</p>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
+async function generateDigestForSubscriber(subscriber) {
+  try {
+    const { fetchPapers } = await import("./src/ingestion/arxivFetcher.js");
+    const papers = await fetchPapers(subscriber.topic, 5);
+    if (!papers || papers.length === 0) return;
+
+    // Generate AI summary for each paper
+    const papersWithSummary = await Promise.all(papers.map(async (p) => {
+      try {
+        const response = await groq.chat.completions.create({
+          model: "llama-3.3-70b-versatile",
+          messages: [{ role: "user", content: `Summarize this research paper abstract in 2-3 sentences for a weekly digest email. Be concise and highlight the key contribution.\n\nTitle: ${p.title}\nAbstract: ${p.abstract}` }],
+          max_tokens: 150,
+          temperature: 0.3,
+        });
+        return { ...p, summary: response.choices[0].message.content };
+      } catch { return { ...p, summary: p.abstract?.slice(0, 200) }; }
+    }));
+
+    const html = buildEmailHTML(subscriber.name, subscriber.topic, papersWithSummary);
+
+    await resend.emails.send({
+      from:    "ResearchMind Digest <onboarding@resend.dev>",
+      to:      subscriber.email,
+      subject: `📚 Your Weekly Digest — ${subscriber.topic}`,
+      html,
+    });
+
+    console.log(`   ✅ Digest sent to ${subscriber.email}`);
+
+    // Update lastSentAt
+    const db = loadSubscribers();
+    const idx = db.subscribers.findIndex(s => s.id === subscriber.id);
+    if (idx >= 0) { db.subscribers[idx].lastSentAt = new Date().toISOString(); saveSubscribers(db); }
+
+  } catch (err) {
+    console.error(`   ❌ Failed to send to ${subscriber.email}:`, err.message);
+  }
+}
+
+async function sendWeeklyDigests() {
+  const db = loadSubscribers();
+  const active = db.subscribers.filter(s => s.active);
+  console.log(`\n📬 Sending weekly digest to ${active.length} subscribers...`);
+  for (const sub of active) { await generateDigestForSubscriber(sub); }
+  console.log("   ✅ Weekly digest complete!");
+}
+
+// ─── CRON: Every Monday at 8:00 AM ───
+cron.schedule("0 8 * * 1", () => {
+  console.log("\n⏰ Monday 8am — Running weekly digest cron...");
+  sendWeeklyDigests();
+});
+
+// ─── ROUTE 8: Subscribe to digest ───
+app.post("/api/digest/subscribe", async (req, res) => {
+  try {
+    const { name, email, topic } = req.body;
+    if (!name || !email || !topic) return res.status(400).json({ error: "Name, email and topic are required." });
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: "Invalid email address." });
+
+    const db = loadSubscribers();
+    const existing = db.subscribers.find(s => s.email.toLowerCase() === email.toLowerCase());
+
+    if (existing) {
+      if (existing.active) return res.status(409).json({ error: "This email is already subscribed." });
+      // Reactivate
+      existing.active = true; existing.topic = topic; existing.name = name;
+      saveSubscribers(db);
+      return res.json({ success: true, message: "Subscription reactivated! You'll get your first digest next Monday." });
+    }
+
+    db.subscribers.push({
+      id:          `sub_${Date.now()}`,
+      name,
+      email,
+      topic,
+      createdAt:   new Date().toISOString(),
+      lastSentAt:  null,
+      active:      true,
+    });
+    saveSubscribers(db);
+
+    // Send welcome email
+    await resend.emails.send({
+      from:    "ResearchMind Digest <onboarding@resend.dev>",
+      to:      email,
+      subject: "📚 You're subscribed to ResearchMind Weekly Digest!",
+      html: `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#0a0b0f;font-family:'Segoe UI',Arial,sans-serif;">
+        <div style="max-width:520px;margin:0 auto;padding:40px 16px;text-align:center;">
+          <div style="background:linear-gradient(135deg,rgba(240,165,0,0.1),rgba(240,165,0,0.02));border:1px solid rgba(240,165,0,0.2);border-radius:16px;padding:36px;">
+            <div style="font-size:40px;margin-bottom:16px;">📬</div>
+            <h1 style="color:#f0f0f0;font-size:22px;margin:0 0 12px;">You're in, ${name}!</h1>
+            <p style="color:#9ca3af;font-size:14px;line-height:1.7;margin:0 0 8px;">Every Monday morning you'll receive the <strong style="color:#f0a500;">5 most important papers</strong> on:</p>
+            <div style="background:#111318;border:1px solid rgba(240,165,0,0.3);border-radius:8px;padding:10px 20px;margin:16px 0;">
+              <p style="color:#f0a500;font-size:15px;font-weight:700;margin:0;font-family:monospace;">${topic}</p>
+            </div>
+            <p style="color:#6b7280;font-size:12px;margin:0 0 24px;">Each paper summarized by AI. No noise, just signal.</p>
+            <a href="https://researchminds.vercel.app" style="display:inline-block;background:linear-gradient(135deg,#f0a500,#d4920a);color:#0a0b0f;font-weight:700;font-size:14px;padding:12px 28px;border-radius:10px;text-decoration:none;">Open ResearchMind →</a>
+          </div>
+          <p style="color:#374151;font-size:11px;margin-top:20px;font-family:monospace;">researchminds.vercel.app</p>
+        </div>
+      </body></html>`,
+    });
+
+    console.log(`   ✅ New subscriber: ${email} → "${topic}"`);
+    res.json({ success: true, message: "Subscribed! Check your email for a confirmation. First digest arrives next Monday." });
+
+  } catch (error) {
+    console.error("Subscribe error:", error);
+    res.status(500).json({ error: "Subscription failed: " + error.message });
+  }
+});
+
+// ─── ROUTE 9: Unsubscribe ───
+app.get("/api/digest/unsubscribe", async (req, res) => {
+  try {
+    const { email } = req.query;
+    if (!email) return res.status(400).json({ error: "Email required." });
+
+    const db = loadSubscribers();
+    const sub = db.subscribers.find(s => s.email.toLowerCase() === email.toLowerCase());
+    if (!sub) return res.status(404).json({ error: "Email not found." });
+
+    sub.active = false;
+    saveSubscribers(db);
+
+    res.send(`<!DOCTYPE html><html><body style="margin:0;padding:0;background:#0a0b0f;font-family:sans-serif;">
+      <div style="max-width:400px;margin:80px auto;text-align:center;padding:40px;background:#111318;border-radius:16px;border:1px solid #1e2030;">
+        <div style="font-size:36px;margin-bottom:16px;">👋</div>
+        <h2 style="color:#f0f0f0;margin:0 0 8px;">Unsubscribed</h2>
+        <p style="color:#9ca3af;font-size:14px;">You've been removed from ResearchMind Weekly Digest.</p>
+        <a href="https://researchminds.vercel.app" style="display:inline-block;margin-top:20px;color:#f0a500;font-size:13px;">← Back to ResearchMind</a>
+      </div>
+    </body></html>`);
+
+  } catch (error) {
+    res.status(500).send("Unsubscribe failed.");
+  }
+});
+
+// ─── ROUTE 10: Send test digest ───
+app.post("/api/digest/test", async (req, res) => {
+  try {
+    const { email, name, topic } = req.body;
+    if (!email || !topic) return res.status(400).json({ error: "Email and topic required." });
+    await generateDigestForSubscriber({ id: "test", email, name: name || "Researcher", topic, active: true });
+    res.json({ success: true, message: `Test digest sent to ${email}` });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log(`\n🚀 Server running on port ${PORT}`);

@@ -9,7 +9,7 @@ import {
   CheckCircle2, SkipForward, Download, Scissors, Cpu,
   Upload, X, File, Send, MessageSquare, Bot, User, Lock, Zap,
   Mic, MicOff, Volume2, VolumeX, Swords, Trophy, GitCompare, Minus,
-  ScrollText, Settings2, Copy, Check, RefreshCw
+  ScrollText, Settings2, Copy, Check, RefreshCw, Mail, Bell
 } from "lucide-react";
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:3001/api";
@@ -501,6 +501,157 @@ function UploadTab({ onPaperIndexed, setStats }) {
 // ─── BATTLE TAB ───
 
 
+
+
+// ─── DIGEST TAB ───
+function DigestTab() {
+  const [name,      setName]      = useState("");
+  const [email,     setEmail]     = useState("");
+  const [topic,     setTopic]     = useState("");
+  const [loading,   setLoading]   = useState(false);
+  const [testLoad,  setTestLoad]  = useState(false);
+  const [success,   setSuccess]   = useState("");
+  const [error,     setError]     = useState("");
+
+  const SUGGESTED_TOPICS = [
+    "Large Language Models", "RAG Systems", "Computer Vision",
+    "Reinforcement Learning", "Diffusion Models", "Transformers",
+    "Neural Networks", "NLP", "Robotics", "Quantum Computing"
+  ];
+
+  async function handleSubscribe() {
+    if (!name.trim() || !email.trim() || !topic.trim()) { setError("Please fill in all fields."); return; }
+    setLoading(true); setError(""); setSuccess("");
+    try {
+      const res = await axios.post(`${API}/digest/subscribe`, { name: name.trim(), email: email.trim(), topic: topic.trim() });
+      setSuccess(res.data.message);
+    } catch (err) {
+      setError(err.response?.data?.error || "Subscription failed. Please try again.");
+    } finally { setLoading(false); }
+  }
+
+  async function handleTest() {
+    if (!email.trim() || !topic.trim()) { setError("Enter email and topic first."); return; }
+    setTestLoad(true); setError(""); setSuccess("");
+    try {
+      const res = await axios.post(`${API}/digest/test`, { email: email.trim(), name: name.trim() || "Researcher", topic: topic.trim() });
+      setSuccess(`Test digest sent to ${email}! Check your inbox.`);
+    } catch (err) {
+      setError(err.response?.data?.error || "Test failed. Please try again.");
+    } finally { setTestLoad(false); }
+  }
+
+  return (
+    <div style={{animation:"fadeSlideIn 0.3s ease both",maxWidth:"640px",margin:"0 auto"}}>
+
+      {/* Hero */}
+      <div style={{textAlign:"center",marginBottom:"32px"}}>
+        <div style={{width:"56px",height:"56px",background:"linear-gradient(135deg,rgba(99,102,241,0.2),rgba(99,102,241,0.05))",border:"1px solid rgba(99,102,241,0.3)",borderRadius:"16px",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 16px"}}>
+          <Mail size={26} color="#6366f1"/>
+        </div>
+        <h2 style={{fontFamily:"'Playfair Display',serif",fontSize:"24px",color:"var(--text-primary)",marginBottom:"8px"}}>Weekly Research Digest</h2>
+        <p style={{color:"var(--text-muted)",fontSize:"14px",fontFamily:"'DM Sans'",lineHeight:1.6,maxWidth:"420px",margin:"0 auto"}}>
+          Get the <strong style={{color:"var(--text-secondary)"}}>5 most important papers</strong> on your topic delivered every Monday morning — summarized by AI.
+        </p>
+      </div>
+
+      {/* What you get */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"10px",marginBottom:"28px"}}>
+        {[
+          { icon:"📄", title:"5 Papers", desc:"Top papers from the past week" },
+          { icon:"🤖", title:"AI Summaries", desc:"Key findings in plain English" },
+          { icon:"📅", title:"Every Monday", desc:"8am in your inbox" },
+        ].map((item,i) => (
+          <div key={i} style={{background:"var(--bg-secondary)",border:"1px solid var(--border)",borderRadius:"12px",padding:"16px 14px",textAlign:"center"}}>
+            <div style={{fontSize:"22px",marginBottom:"8px"}}>{item.icon}</div>
+            <p style={{color:"var(--text-primary)",fontSize:"13px",fontFamily:"'DM Sans'",fontWeight:600,marginBottom:"3px"}}>{item.title}</p>
+            <p style={{color:"var(--text-muted)",fontSize:"11px",fontFamily:"'JetBrains Mono'"}}>{item.desc}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Form */}
+      <div className="panel-card">
+        <h3 style={{fontFamily:"'DM Sans'",fontSize:"15px",fontWeight:700,color:"var(--text-primary)",marginBottom:"20px",display:"flex",alignItems:"center",gap:"8px"}}>
+          <Bell size={15} color="#6366f1"/> Subscribe Free
+        </h3>
+
+        {success ? (
+          <div style={{textAlign:"center",padding:"32px 20px"}}>
+            <div style={{width:"56px",height:"56px",background:"rgba(74,222,128,0.1)",border:"1px solid rgba(74,222,128,0.3)",borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 16px"}}>
+              <CheckCircle2 size={28} color="#4ade80"/>
+            </div>
+            <h3 style={{fontFamily:"'Playfair Display',serif",fontSize:"20px",color:"var(--text-primary)",marginBottom:"8px"}}>You're subscribed! 🎉</h3>
+            <p style={{color:"var(--text-secondary)",fontSize:"14px",fontFamily:"'DM Sans'",lineHeight:1.7,marginBottom:"20px"}}>{success}</p>
+            <button onClick={()=>{setSuccess("");setName("");setEmail("");setTopic("");}}
+              style={{padding:"8px 20px",background:"transparent",border:"1px solid var(--border)",borderRadius:"8px",color:"var(--text-muted)",fontSize:"13px",cursor:"pointer",fontFamily:"'DM Sans'"}}>
+              Subscribe another email
+            </button>
+          </div>
+        ) : (
+          <>
+            {/* Name */}
+            <div style={{marginBottom:"16px"}}>
+              <label style={{display:"block",color:"var(--text-secondary)",fontSize:"11px",fontFamily:"'JetBrains Mono'",letterSpacing:"0.08em",marginBottom:"8px"}}>YOUR NAME</label>
+              <input value={name} onChange={e=>setName(e.target.value)} placeholder="Ayush"
+                style={{width:"100%",padding:"12px 14px",background:"var(--bg-secondary)",border:"1px solid var(--border)",borderRadius:"10px",color:"var(--text-primary)",fontSize:"14px",fontFamily:"'DM Sans'",outline:"none",boxSizing:"border-box",transition:"border 0.2s"}}
+                onFocus={e=>e.target.style.borderColor="rgba(99,102,241,0.5)"}
+                onBlur={e=>e.target.style.borderColor="var(--border)"}/>
+            </div>
+
+            {/* Email */}
+            <div style={{marginBottom:"16px"}}>
+              <label style={{display:"block",color:"var(--text-secondary)",fontSize:"11px",fontFamily:"'JetBrains Mono'",letterSpacing:"0.08em",marginBottom:"8px"}}>EMAIL ADDRESS</label>
+              <input value={email} onChange={e=>setEmail(e.target.value)} placeholder="you@email.com" type="email"
+                style={{width:"100%",padding:"12px 14px",background:"var(--bg-secondary)",border:"1px solid var(--border)",borderRadius:"10px",color:"var(--text-primary)",fontSize:"14px",fontFamily:"'DM Sans'",outline:"none",boxSizing:"border-box",transition:"border 0.2s"}}
+                onFocus={e=>e.target.style.borderColor="rgba(99,102,241,0.5)"}
+                onBlur={e=>e.target.style.borderColor="var(--border)"}/>
+            </div>
+
+            {/* Topic */}
+            <div style={{marginBottom:"12px"}}>
+              <label style={{display:"block",color:"var(--text-secondary)",fontSize:"11px",fontFamily:"'JetBrains Mono'",letterSpacing:"0.08em",marginBottom:"8px"}}>RESEARCH TOPIC</label>
+              <input value={topic} onChange={e=>setTopic(e.target.value)} placeholder="e.g. Large Language Models, Computer Vision..."
+                style={{width:"100%",padding:"12px 14px",background:"var(--bg-secondary)",border:"1px solid var(--border)",borderRadius:"10px",color:"var(--text-primary)",fontSize:"14px",fontFamily:"'DM Sans'",outline:"none",boxSizing:"border-box",transition:"border 0.2s"}}
+                onFocus={e=>e.target.style.borderColor="rgba(99,102,241,0.5)"}
+                onBlur={e=>e.target.style.borderColor="var(--border)"}/>
+            </div>
+
+            {/* Suggested topics */}
+            <div style={{display:"flex",flexWrap:"wrap",gap:"6px",marginBottom:"20px"}}>
+              {SUGGESTED_TOPICS.map(t => (
+                <button key={t} onClick={()=>setTopic(t)}
+                  style={{padding:"4px 10px",background:topic===t?"rgba(99,102,241,0.15)":"var(--bg-hover)",border:`1px solid ${topic===t?"rgba(99,102,241,0.4)":"var(--border)"}`,borderRadius:"20px",color:topic===t?"#6366f1":"var(--text-muted)",fontSize:"11px",cursor:"pointer",fontFamily:"'JetBrains Mono'",transition:"all 0.15s"}}>
+                  {t}
+                </button>
+              ))}
+            </div>
+
+            {error && <div className="error-row" style={{marginBottom:"16px"}}><AlertCircle size={14}/>{error}</div>}
+
+            {/* Subscribe button */}
+            <button onClick={handleSubscribe} disabled={loading}
+              style={{width:"100%",padding:"14px",background:loading?"var(--bg-hover)":"linear-gradient(135deg,#6366f1,#4f46e5)",border:"none",borderRadius:"10px",color:loading?"var(--text-muted)":"#fff",fontWeight:700,fontSize:"15px",cursor:loading?"not-allowed":"pointer",fontFamily:"'DM Sans'",display:"flex",alignItems:"center",justifyContent:"center",gap:"10px",marginBottom:"10px",transition:"all 0.2s",boxShadow:loading?"none":"0 4px 20px rgba(99,102,241,0.3)"}}>
+              {loading ? <><Loader2 size={16} style={{animation:"spin 1s linear infinite"}}/> Subscribing...</> : <><Mail size={16}/> Subscribe Free — Every Monday</>}
+            </button>
+
+            {/* Test button */}
+            <button onClick={handleTest} disabled={testLoad}
+              style={{width:"100%",padding:"11px",background:"transparent",border:"1px solid var(--border)",borderRadius:"10px",color:"var(--text-muted)",fontSize:"13px",cursor:testLoad?"not-allowed":"pointer",fontFamily:"'DM Sans'",display:"flex",alignItems:"center",justifyContent:"center",gap:"8px",transition:"all 0.2s"}}
+              onMouseEnter={e=>{e.currentTarget.style.borderColor="rgba(99,102,241,0.3)";e.currentTarget.style.color="#6366f1"}}
+              onMouseLeave={e=>{e.currentTarget.style.borderColor="var(--border)";e.currentTarget.style.color="var(--text-muted)"}}>
+              {testLoad ? <><Loader2 size={13} style={{animation:"spin 1s linear infinite"}}/> Sending test...</> : <><Send size={13}/> Send me a test digest now</>}
+            </button>
+
+            <p style={{textAlign:"center",color:"var(--text-muted)",fontSize:"11px",fontFamily:"'JetBrains Mono'",marginTop:"14px"}}>
+              Free forever · No spam · Unsubscribe anytime
+            </p>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
 
 // ─── LITERATURE REVIEW TAB ───
 function LitReviewTab({ stats }) {
@@ -1413,6 +1564,7 @@ export default function App() {
               { id: "ask",       label: "Ask",           icon: MessageSquare },
               { id: "battle",    label: "Battle",        icon: Swords },
               { id: "litreview", label: "Lit Review",    icon: ScrollText },
+              { id: "digest",    label: "Digest",       icon: Mail },
             ].map(({ id, label, icon: Icon }) => (
               <button key={id} className="tab-btn" onClick={() => setTab(id)} style={{ background: tab === id ? "linear-gradient(135deg, rgba(240,165,0,0.15), rgba(240,165,0,0.05))" : "transparent", color: tab === id ? "var(--gold)" : "var(--text-muted)", border: tab === id ? "1px solid rgba(240,165,0,0.25)" : "1px solid transparent" }}>
                 <Icon size={15} />
@@ -1597,6 +1749,7 @@ export default function App() {
           )}
           {tab === "battle" && <BattleTab indexedPapers={papers} />}
           {tab === "litreview" && <LitReviewTab stats={stats} />}
+          {tab === "digest" && <DigestTab />}
         </main>
       </div>
     </>
