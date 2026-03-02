@@ -155,6 +155,20 @@ app.post("/api/upload-pdf", upload.single("pdf"), async (req, res) => {
     const cleanText = pdfData.text.replace(/\s+/g, " ").replace(/\n+/g, "\n").trim();
     if (cleanText.length < 100) return res.status(422).json({ error: "Could not extract text from this PDF." });
     paper.fullText = cleanText;
+
+    // ─── Auto-extract abstract if not manually provided ───
+    if (!req.body.abstract) {
+      const first2000 = cleanText.slice(0, 2000);
+      // Try to find "Abstract" section header
+      const abstractMatch = first2000.match(/abstract[:\s]+([^]+?)(?=introduction|keywords|1\s*\.|background|©|\n\n\n)/i);
+      if (abstractMatch && abstractMatch[1]?.trim().length > 50) {
+        paper.abstract = abstractMatch[1].replace(/\s+/g, " ").trim().slice(0, 600);
+      } else {
+        // Fallback: grab a clean chunk from early in the text (after title area)
+        paper.abstract = cleanText.replace(/\s+/g, " ").trim().slice(150, 550);
+      }
+      console.log(`   📝 Auto-extracted abstract: "${paper.abstract.slice(0, 80)}..."`);
+    }
     const chunks = chunkPaper(paper);
     if (chunks.length === 0) return res.status(422).json({ error: "PDF had no usable text content." });
     const embedded = await embedChunks(chunks);
@@ -513,7 +527,99 @@ cron.schedule("0 8 * * 1", () => {
   sendWeeklyDigests();
 });
 
-// ─── ROUTE 8: Subscribe to digest ───
+// ─── ROUTE 11: 🔍 Research Gap Finder ───
+app.post("/api/research-gaps", async (req, res) => {
+  try {
+    const DB_PATH = new URL("./data/vectorStore.json", import.meta.url);
+    const raw  = fs.readFileSync(DB_PATH, "utf-8");
+    const db   = JSON.parse(raw);
+
+    if (!db.chunks || db.chunks.length === 0) {
+      return res.status(404).json({ error: "No papers indexed yet. Please ingest papers first." });
+    }
+
+    // Deduplicate papers
+    const paperMap = new Map();
+    db.chunks.forEach(chunk => {
+      const id = chunk.metadata?.paperId;
+      if (id && !paperMap.has(id)) {
+        paperMap.set(id, {
+          id,
+          title:     chunk.metadata.title     || "Untitled",
+          authors:   chunk.metadata.authors   || "Unknown",
+          published: chunk.metadata.published || "Unknown",
+          abstract:  chunk.metadata.abstract  || "",
+        });
+      }
+    });
+
+    const papers = Array.from(paperMap.values()).slice(0, 8); // max 8 papers
+    if (papers.length < 2) {
+      return res.status(400).json({ error: "Please index at least 2 papers to find research gaps." });
+    }
+
+    console.log(`\n🔍 Finding research gaps across ${papers.length} papers...`);
+
+    // Very short abstracts to keep prompt small
+    const papersContext = papers.map((p, i) =>
+      `[${i+1}] "${p.title}" (${p.published}) — ${p.abstract?.slice(0, 150) || "N/A"}`
+    ).join("\n");
+
+    const prompt = `Analyze these ${papers.length} research papers and find gaps. Respond ONLY with valid compact JSON on one line, no newlines inside strings, no trailing commas:
+
+PAPERS:
+${papersContext}
+
+JSON format (keep each string under 100 chars):
+{"topic":"5 word topic","summary":"one sentence","critical_gaps":[{"title":"gap title","description":"what is missing","papers_that_hint":"[1],[2]"}],"partial_gaps":[{"title":"gap title","description":"understudied area","papers_that_hint":"[1]"}],"contradictions":[{"title":"contradiction topic","paper_a":"paper 1 claims X","paper_b":"paper 2 claims Y","implication":"why it matters"}],"future_directions":[{"title":"direction title","description":"what to explore","novelty":"high"}],"universal_agreements":["agreement 1","agreement 2"],"most_promising_gap":"2 sentence recommendation"}
+
+Rules: max 3 items per array, strings must be short, valid JSON only.`;
+
+    const response = await groq.chat.completions.create({
+      model: "llama-3.3-70b-versatile",
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.2,
+      max_tokens: 3000,
+    });
+
+    const raw2  = response.choices[0].message.content;
+    let clean = raw2.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+
+    // Extract just the JSON object if there's extra text
+    const jsonStart = clean.indexOf("{");
+    const jsonEnd   = clean.lastIndexOf("}");
+    if (jsonStart >= 0 && jsonEnd > jsonStart) {
+      clean = clean.slice(jsonStart, jsonEnd + 1);
+    }
+
+    let gaps;
+    try {
+      gaps = JSON.parse(clean);
+    } catch (parseErr) {
+      // Try to repair truncated JSON by closing open structures
+      console.log("   ⚠️  JSON truncated, attempting repair...");
+      let repaired = clean;
+      // Close any open arrays
+      let openArrays = (repaired.match(/\[/g) || []).length - (repaired.match(/\]/g) || []).length;
+      for (let i = 0; i < openArrays; i++) repaired += "]";
+      // Close any open objects
+      let openObjects = (repaired.match(/\{/g) || []).length - (repaired.match(/\}/g) || []).length;
+      for (let i = 0; i < openObjects; i++) repaired += "}";
+      // Remove trailing commas before closing brackets
+      repaired = repaired.replace(/,\s*([}\]])/g, "$1");
+      gaps = JSON.parse(repaired);
+    }
+
+    console.log(`   ✅ Found ${gaps.critical_gaps?.length || 0} critical gaps, ${gaps.partial_gaps?.length || 0} partial gaps`);
+    res.json({ success: true, gaps, paperCount: papers.length });
+
+  } catch (error) {
+    console.error("Research gaps error:", error);
+    res.status(500).json({ error: "Failed to find research gaps: " + error.message });
+  }
+});
+
+
 app.post("/api/digest/subscribe", async (req, res) => {
   try {
     const { name, email, topic } = req.body;

@@ -9,7 +9,8 @@ import {
   CheckCircle2, SkipForward, Download, Scissors, Cpu,
   Upload, X, File, Send, MessageSquare, Bot, User, Lock, Zap,
   Mic, MicOff, Volume2, VolumeX, Swords, Trophy, GitCompare, Minus,
-  ScrollText, Settings2, Copy, Check, RefreshCw, Mail, Bell
+  ScrollText, Settings2, Copy, Check, RefreshCw, Mail, Bell,
+  Search as SearchIcon
 } from "lucide-react";
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:3001/api";
@@ -502,6 +503,230 @@ function UploadTab({ onPaperIndexed, setStats }) {
 
 
 
+
+
+// ─── RESEARCH GAP FINDER ───
+function ResearchGapsTab({ stats }) {
+  const [gaps,    setGaps]    = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error,   setError]   = useState("");
+  const [copied,  setCopied]  = useState(false);
+
+  async function handleFind() {
+    setLoading(true); setError(""); setGaps(null);
+    try {
+      const res = await axios.post(`${API}/research-gaps`);
+      setGaps(res.data.gaps);
+    } catch (err) {
+      setError(err.response?.data?.error || "Failed to find gaps. Please try again.");
+    } finally { setLoading(false); }
+  }
+
+  function handleCopy() {
+    if (!gaps) return;
+    const text = [
+      `RESEARCH GAPS ANALYSIS — ${gaps.topic}`,
+      `Based on ${stats.totalPapers} papers`,
+      "",
+      "CRITICAL GAPS:",
+      ...(gaps.critical_gaps || []).map((g,i) => `${i+1}. ${g.title}\n   ${g.description}`),
+      "",
+      "PARTIAL GAPS:",
+      ...(gaps.partial_gaps || []).map((g,i) => `${i+1}. ${g.title}\n   ${g.description}`),
+      "",
+      "FUTURE DIRECTIONS:",
+      ...(gaps.future_directions || []).map((g,i) => `${i+1}. ${g.title}\n   ${g.description}`),
+      "",
+      "MOST PROMISING GAP:",
+      gaps.most_promising_gap || "",
+    ].join("\n");
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
+  function GapCard({ item, color, index }) {
+    return (
+      <div style={{background:"var(--bg-secondary)",border:`1px solid ${color}30`,borderRadius:"12px",padding:"16px 18px",marginBottom:"10px",borderLeft:`3px solid ${color}`}}>
+        <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:"12px",marginBottom:"8px"}}>
+          <div style={{display:"flex",alignItems:"center",gap:"8px"}}>
+            <span style={{background:`${color}18`,color:color,fontSize:"11px",fontFamily:"'JetBrains Mono'",fontWeight:700,padding:"2px 8px",borderRadius:"20px",flexShrink:0}}>#{index+1}</span>
+            <h4 style={{color:"var(--text-primary)",fontSize:"13px",fontFamily:"'DM Sans'",fontWeight:700,margin:0,lineHeight:1.4}}>{item.title}</h4>
+          </div>
+          {item.novelty && (
+            <span style={{background:item.novelty==="high"?"rgba(74,222,128,0.1)":item.novelty==="medium"?"rgba(240,165,0,0.1)":"rgba(156,163,175,0.1)",color:item.novelty==="high"?"#4ade80":item.novelty==="medium"?"var(--gold)":"#9ca3af",fontSize:"10px",fontFamily:"'JetBrains Mono'",padding:"2px 8px",borderRadius:"20px",flexShrink:0,border:`1px solid ${item.novelty==="high"?"rgba(74,222,128,0.3)":item.novelty==="medium"?"rgba(240,165,0,0.3)":"rgba(156,163,175,0.2)"}`}}>
+              {item.novelty} novelty
+            </span>
+          )}
+        </div>
+        <p style={{color:"var(--text-secondary)",fontSize:"13px",fontFamily:"'DM Sans'",lineHeight:1.7,margin:"0 0 8px"}}>{item.description}</p>
+        {item.papers_that_hint && (
+          <p style={{color:"var(--text-muted)",fontSize:"11px",fontFamily:"'JetBrains Mono'",margin:0}}>Referenced in: {item.papers_that_hint}</p>
+        )}
+        {item.paper_a && (
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"8px",marginTop:"8px"}}>
+            <div style={{background:"rgba(96,165,250,0.06)",border:"1px solid rgba(96,165,250,0.2)",borderRadius:"8px",padding:"8px 10px"}}>
+              <p style={{color:"#60a5fa",fontSize:"10px",fontFamily:"'JetBrains Mono'",marginBottom:"4px"}}>PAPER A CLAIMS</p>
+              <p style={{color:"var(--text-secondary)",fontSize:"12px",fontFamily:"'DM Sans'",margin:0,lineHeight:1.5}}>{item.paper_a}</p>
+            </div>
+            <div style={{background:"rgba(244,114,182,0.06)",border:"1px solid rgba(244,114,182,0.2)",borderRadius:"8px",padding:"8px 10px"}}>
+              <p style={{color:"#f472b6",fontSize:"10px",fontFamily:"'JetBrains Mono'",marginBottom:"4px"}}>PAPER B CLAIMS</p>
+              <p style={{color:"var(--text-secondary)",fontSize:"12px",fontFamily:"'DM Sans'",margin:0,lineHeight:1.5}}>{item.paper_b}</p>
+            </div>
+          </div>
+        )}
+        {item.implication && (
+          <p style={{color:"var(--text-muted)",fontSize:"12px",fontFamily:"'DM Sans'",fontStyle:"italic",marginTop:"8px",borderTop:"1px solid var(--border)",paddingTop:"8px",margin:"8px 0 0"}}>💡 {item.implication}</p>
+        )}
+      </div>
+    );
+  }
+
+  function Section({ title, icon, color, items, renderItem }) {
+    if (!items || items.length === 0) return null;
+    return (
+      <div style={{marginBottom:"24px"}}>
+        <div style={{display:"flex",alignItems:"center",gap:"8px",marginBottom:"12px"}}>
+          <span style={{fontSize:"16px"}}>{icon}</span>
+          <h3 style={{fontFamily:"'JetBrains Mono'",fontSize:"11px",letterSpacing:"0.1em",color:color,margin:0}}>{title}</h3>
+          <span style={{background:`${color}18`,color:color,fontSize:"11px",fontFamily:"'JetBrains Mono'",padding:"1px 8px",borderRadius:"20px",border:`1px solid ${color}30`}}>{items.length}</span>
+        </div>
+        {items.map((item, i) => renderItem(item, i))}
+      </div>
+    );
+  }
+
+  return (
+    <div style={{animation:"fadeSlideIn 0.3s ease both"}}>
+      {/* Header panel */}
+      <div className="panel-card" style={{marginBottom:"20px"}}>
+        <div style={{display:"flex",alignItems:"center",gap:"12px",marginBottom:"20px"}}>
+          <div style={{width:"40px",height:"40px",background:"linear-gradient(135deg,rgba(251,146,60,0.2),rgba(251,146,60,0.05))",border:"1px solid rgba(251,146,60,0.3)",borderRadius:"12px",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+            <Search size={20} color="#fb923c"/>
+          </div>
+          <div>
+            <h2 style={{fontFamily:"'Playfair Display',serif",fontSize:"20px",marginBottom:"2px"}}>Research Gap Finder</h2>
+            <p style={{color:"var(--text-muted)",fontSize:"12px",fontFamily:"'JetBrains Mono'"}}>
+              {stats.totalPapers} papers indexed · AI finds what nobody has studied yet
+            </p>
+          </div>
+        </div>
+
+        {stats.totalPapers < 2 ? (
+          <div style={{textAlign:"center",padding:"48px 24px",background:"var(--bg-secondary)",border:"1px solid var(--border)",borderRadius:"12px"}}>
+            <Search size={36} color="var(--text-muted)" style={{margin:"0 auto 16px",display:"block",opacity:0.3}}/>
+            <p style={{color:"var(--text-secondary)",fontSize:"14px",fontFamily:"'DM Sans'",fontWeight:600,marginBottom:"6px"}}>Need at least 2 indexed papers</p>
+            <p style={{color:"var(--text-muted)",fontSize:"13px",fontFamily:"'DM Sans'"}}>Go to Search Papers and ingest at least 2 papers first.</p>
+          </div>
+        ) : (
+          <>
+            {/* What this finds */}
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))",gap:"8px",marginBottom:"20px"}}>
+              {[
+                { icon:"🚨", label:"Critical Gaps", desc:"Completely unstudied", color:"#f87171" },
+                { icon:"⚠️", label:"Partial Gaps",  desc:"Barely explored",     color:"#fb923c" },
+                { icon:"⚡", label:"Contradictions", desc:"Papers that disagree", color:"#a78bfa" },
+                { icon:"💡", label:"Future Directions", desc:"What to study next", color:"#4ade80" },
+              ].map((item,i) => (
+                <div key={i} style={{background:"var(--bg-secondary)",border:"1px solid var(--border)",borderRadius:"10px",padding:"12px 14px",textAlign:"center"}}>
+                  <div style={{fontSize:"20px",marginBottom:"6px"}}>{item.icon}</div>
+                  <p style={{color:item.color,fontSize:"12px",fontFamily:"'DM Sans'",fontWeight:600,marginBottom:"2px"}}>{item.label}</p>
+                  <p style={{color:"var(--text-muted)",fontSize:"10px",fontFamily:"'JetBrains Mono'"}}>{item.desc}</p>
+                </div>
+              ))}
+            </div>
+
+            {error && <div className="error-row" style={{marginBottom:"16px"}}><AlertCircle size={14}/>{error}</div>}
+
+            <button onClick={handleFind} disabled={loading || stats.totalPapers < 2}
+              style={{width:"100%",padding:"15px",background:loading?"var(--bg-hover)":"linear-gradient(135deg,#fb923c,#ea580c)",border:"none",borderRadius:"10px",color:loading?"var(--text-muted)":"#fff",fontWeight:700,fontSize:"15px",cursor:loading?"not-allowed":"pointer",fontFamily:"'DM Sans'",display:"flex",alignItems:"center",justifyContent:"center",gap:"10px",transition:"all 0.2s",boxShadow:loading?"none":"0 4px 20px rgba(251,146,60,0.3)"}}>
+              {loading
+                ? <><Loader2 size={16} style={{animation:"spin 1s linear infinite"}}/> Analyzing {stats.totalPapers} papers for gaps — takes ~15 seconds...</>
+                : <><Search size={16}/> Find Research Gaps ({stats.totalPapers} papers)</>
+              }
+            </button>
+          </>
+        )}
+      </div>
+
+      {/* Results */}
+      {gaps && (
+        <div style={{animation:"fadeSlideIn 0.4s ease both"}}>
+
+          {/* Summary bar */}
+          <div style={{background:"linear-gradient(135deg,rgba(251,146,60,0.08),rgba(251,146,60,0.02))",border:"1px solid rgba(251,146,60,0.2)",borderRadius:"14px",padding:"20px 24px",marginBottom:"20px"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:"12px",marginBottom:"12px"}}>
+              <div>
+                <p style={{color:"var(--text-muted)",fontSize:"11px",fontFamily:"'JetBrains Mono'",letterSpacing:"0.1em",marginBottom:"6px"}}>ANALYSIS TOPIC</p>
+                <h3 style={{fontFamily:"'Playfair Display',serif",fontSize:"20px",color:"var(--text-primary)",margin:0}}>{gaps.topic}</h3>
+              </div>
+              <div style={{display:"flex",gap:"8px"}}>
+                <button onClick={handleCopy}
+                  style={{display:"flex",alignItems:"center",gap:"5px",padding:"7px 14px",background:copied?"rgba(74,222,128,0.1)":"rgba(251,146,60,0.1)",border:`1px solid ${copied?"rgba(74,222,128,0.3)":"rgba(251,146,60,0.3)"}`,borderRadius:"8px",color:copied?"#4ade80":"#fb923c",fontSize:"12px",cursor:"pointer",fontFamily:"'JetBrains Mono'",transition:"all 0.2s"}}>
+                  {copied ? <><Check size={12}/> Copied!</> : <><Copy size={12}/> Copy All</>}
+                </button>
+              </div>
+            </div>
+            <p style={{color:"var(--text-secondary)",fontSize:"13px",fontFamily:"'DM Sans'",lineHeight:1.6,margin:"0 0 12px"}}>{gaps.summary}</p>
+            <div style={{display:"flex",gap:"16px",flexWrap:"wrap"}}>
+              {[
+                { label:"Critical Gaps",    count:gaps.critical_gaps?.length,    color:"#f87171" },
+                { label:"Partial Gaps",     count:gaps.partial_gaps?.length,     color:"#fb923c" },
+                { label:"Contradictions",   count:gaps.contradictions?.length,   color:"#a78bfa" },
+                { label:"Future Directions",count:gaps.future_directions?.length,color:"#4ade80" },
+              ].map((s,i) => s.count > 0 && (
+                <span key={i} style={{display:"flex",alignItems:"center",gap:"5px",color:s.color,fontSize:"12px",fontFamily:"'JetBrains Mono'"}}>
+                  <span style={{background:`${s.color}20`,border:`1px solid ${s.color}40`,borderRadius:"50%",width:"20px",height:"20px",display:"inline-flex",alignItems:"center",justifyContent:"center",fontSize:"11px",fontWeight:700}}>{s.count}</span>
+                  {s.label}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          {/* Sections */}
+          <Section title="CRITICAL GAPS" icon="🚨" color="#f87171" items={gaps.critical_gaps}
+            renderItem={(item,i) => <GapCard key={i} item={item} color="#f87171" index={i}/>}/>
+
+          <Section title="PARTIAL GAPS" icon="⚠️" color="#fb923c" items={gaps.partial_gaps}
+            renderItem={(item,i) => <GapCard key={i} item={item} color="#fb923c" index={i}/>}/>
+
+          <Section title="CONTRADICTIONS" icon="⚡" color="#a78bfa" items={gaps.contradictions}
+            renderItem={(item,i) => <GapCard key={i} item={item} color="#a78bfa" index={i}/>}/>
+
+          <Section title="FUTURE DIRECTIONS" icon="💡" color="#4ade80" items={gaps.future_directions}
+            renderItem={(item,i) => <GapCard key={i} item={item} color="#4ade80" index={i}/>}/>
+
+          {/* Universal agreements */}
+          {gaps.universal_agreements?.length > 0 && (
+            <div style={{background:"rgba(96,165,250,0.04)",border:"1px solid rgba(96,165,250,0.2)",borderRadius:"12px",padding:"16px 20px",marginBottom:"20px"}}>
+              <div style={{display:"flex",alignItems:"center",gap:"8px",marginBottom:"12px"}}>
+                <span style={{fontSize:"16px"}}>🤝</span>
+                <h3 style={{fontFamily:"'JetBrains Mono'",fontSize:"11px",letterSpacing:"0.1em",color:"#60a5fa",margin:0}}>ALL PAPERS AGREE MORE RESEARCH IS NEEDED ON</h3>
+              </div>
+              <div style={{display:"flex",flexDirection:"column",gap:"8px"}}>
+                {gaps.universal_agreements.map((a,i) => (
+                  <div key={i} style={{display:"flex",alignItems:"flex-start",gap:"8px"}}>
+                    <CheckCircle2 size={13} color="#60a5fa" style={{flexShrink:0,marginTop:"2px"}}/>
+                    <span style={{color:"var(--text-secondary)",fontSize:"13px",fontFamily:"'DM Sans'",lineHeight:1.6}}>{a}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Most promising gap */}
+          {gaps.most_promising_gap && (
+            <div style={{background:"linear-gradient(135deg,rgba(240,165,0,0.08),rgba(240,165,0,0.02))",border:"1px solid rgba(240,165,0,0.25)",borderRadius:"14px",padding:"24px",textAlign:"center"}}>
+              <span style={{fontSize:"24px",display:"block",marginBottom:"10px"}}>⭐</span>
+              <p style={{color:"var(--gold)",fontSize:"11px",fontFamily:"'JetBrains Mono'",letterSpacing:"0.1em",marginBottom:"10px"}}>MOST PROMISING GAP TO PURSUE</p>
+              <p style={{color:"var(--text-secondary)",fontSize:"14px",fontFamily:"'DM Sans'",lineHeight:1.8,maxWidth:"600px",margin:"0 auto"}}>{gaps.most_promising_gap}</p>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 // ─── DIGEST TAB ───
 function DigestTab() {
@@ -1564,6 +1789,7 @@ export default function App() {
               { id: "ask",       label: "Ask",           icon: MessageSquare },
               { id: "battle",    label: "Battle",        icon: Swords },
               { id: "litreview", label: "Lit Review",    icon: ScrollText },
+              { id: "gaps",      label: "Gaps",         icon: SearchIcon },
               { id: "digest",    label: "Digest",       icon: Mail },
             ].map(({ id, label, icon: Icon }) => (
               <button key={id} className="tab-btn" onClick={() => setTab(id)} style={{ background: tab === id ? "linear-gradient(135deg, rgba(240,165,0,0.15), rgba(240,165,0,0.05))" : "transparent", color: tab === id ? "var(--gold)" : "var(--text-muted)", border: tab === id ? "1px solid rgba(240,165,0,0.25)" : "1px solid transparent" }}>
@@ -1749,6 +1975,7 @@ export default function App() {
           )}
           {tab === "battle" && <BattleTab indexedPapers={papers} />}
           {tab === "litreview" && <LitReviewTab stats={stats} />}
+          {tab === "gaps" && <ResearchGapsTab stats={stats} />}
           {tab === "digest" && <DigestTab />}
         </main>
       </div>
