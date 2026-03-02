@@ -10,7 +10,7 @@ import {
   Upload, X, File, Send, MessageSquare, Bot, User, Lock, Zap,
   Mic, MicOff, Volume2, VolumeX, Swords, Trophy, GitCompare, Minus,
   ScrollText, Settings2, Copy, Check, RefreshCw, Mail, Bell,
-  Search as SearchIcon
+  Search as SearchIcon, GraduationCap
 } from "lucide-react";
 
 const API = import.meta.env.VITE_API_URL || "http://localhost:3001/api";
@@ -1360,6 +1360,7 @@ export default function App() {
   const [showWelcome,  setShowWelcome]      = useState(false);
   const [showHardWall, setShowHardWall]     = useState(false);
   const [searchCount,  setSearchCount]      = useState(0);
+  const [showSupervisor, setShowSupervisor] = useState(false);
 
   // ─── VOICE STATE ───
   const [isListening,    setIsListening]    = useState(false);
@@ -1799,6 +1800,26 @@ export default function App() {
             ))}
           </div>
 
+          {/* AI Supervisor entry point */}
+          <div style={{marginBottom:"32px",animation:"fadeSlideIn 0.6s ease 0.15s both"}}>
+            <button onClick={() => setShowSupervisor(true)}
+              style={{width:"100%",padding:"16px 24px",background:"linear-gradient(135deg,rgba(240,165,0,0.08),rgba(240,165,0,0.02))",border:"1px solid rgba(240,165,0,0.2)",borderRadius:"14px",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"space-between",transition:"all 0.2s",gap:"16px"}}
+              onMouseEnter={e=>{e.currentTarget.style.borderColor="rgba(240,165,0,0.4)"; e.currentTarget.style.background="linear-gradient(135deg,rgba(240,165,0,0.12),rgba(240,165,0,0.04))"}}
+              onMouseLeave={e=>{e.currentTarget.style.borderColor="rgba(240,165,0,0.2)"; e.currentTarget.style.background="linear-gradient(135deg,rgba(240,165,0,0.08),rgba(240,165,0,0.02))"}}>
+              <div style={{display:"flex",alignItems:"center",gap:"14px"}}>
+                <div style={{width:"40px",height:"40px",background:"linear-gradient(135deg,rgba(240,165,0,0.2),rgba(240,165,0,0.05))",border:"1px solid rgba(240,165,0,0.3)",borderRadius:"12px",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontSize:"20px"}}>👨‍🏫</div>
+                <div style={{textAlign:"left"}}>
+                  <p style={{color:"var(--gold)",fontSize:"14px",fontFamily:"'DM Sans'",fontWeight:700,marginBottom:"2px"}}>AI Research Supervisor</p>
+                  <p style={{color:"var(--text-muted)",fontSize:"12px",fontFamily:"'JetBrains Mono'"}}>Get expert feedback on your research · {stats.totalPapers} papers ready to analyze</p>
+                </div>
+              </div>
+              <div style={{display:"flex",alignItems:"center",gap:"8px",flexShrink:0}}>
+                <span style={{padding:"4px 10px",background:"rgba(240,165,0,0.12)",border:"1px solid rgba(240,165,0,0.25)",borderRadius:"20px",color:"var(--gold)",fontSize:"10px",fontFamily:"'JetBrains Mono'"}}>NEW</span>
+                <ChevronRight size={16} color="var(--gold)"/>
+              </div>
+            </button>
+          </div>
+
           {tab === "ingest" && (
             <div style={{ animation: "fadeSlideIn 0.3s ease both" }}>
               <div className="panel-card">
@@ -1979,6 +2000,407 @@ export default function App() {
           {tab === "digest" && <DigestTab />}
         </main>
       </div>
+
+      {/* AI Supervisor Full Screen */}
+      {showSupervisor && <SupervisorPage stats={stats} onClose={() => setShowSupervisor(false)} />}
     </>
+  );
+}
+
+// ─── AI SUPERVISOR PAGE ───
+function SupervisorPage({ stats, onClose }) {
+  const MODES = [
+    { id: "supportive", label: "Supportive", emoji: "🤝", color: "#4ade80", desc: "Encouraging, gentle, builds confidence", persona: "I'm here to help you grow. I'll be honest but kind — every great researcher started where you are." },
+    { id: "strict",     label: "Strict",     emoji: "⚡", color: "#f87171", desc: "Harsh but fair, like a top professor", persona: "I have high standards because I believe in your potential. Expect direct, unfiltered feedback." },
+    { id: "focused",    label: "Focused",    emoji: "🎯", color: "#60a5fa", desc: "Methodology only, precise and technical", persona: "We'll focus exclusively on your methodology. Everything else is secondary to rigorous research design." },
+    { id: "interdisciplinary", label: "Interdisciplinary", emoji: "🌍", color: "#a78bfa", desc: "Connects your work across fields", persona: "The most interesting research lives at intersections. I'll show you how your work connects to unexpected fields." },
+  ];
+
+  const [phase, setPhase]             = useState("setup"); // setup | session
+  const [selectedMode, setSelectedMode] = useState(null);
+  const [researchQuestion, setResearchQuestion] = useState("");
+  const [draftFile, setDraftFile]     = useState(null);
+  const [draftText, setDraftText]     = useState("");
+  const [uploadingDraft, setUploadingDraft] = useState(false);
+  const [messages, setMessages]       = useState([]);
+  const [input, setInput]             = useState("");
+  const [isThinking, setIsThinking]   = useState(false);
+  const [sessionStarted, setSessionStarted] = useState(false);
+  const [copied, setCopied]           = useState(false);
+
+  const chatEndRef   = useRef(null);
+  const inputRef     = useRef(null);
+  const fileInputRef = useRef(null);
+
+  useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
+
+  const mode = MODES.find(m => m.id === selectedMode);
+
+  // Upload draft PDF
+  async function handleDraftUpload(file) {
+    if (!file || file.type !== "application/pdf") return;
+    setDraftFile(file);
+    setUploadingDraft(true);
+    const formData = new FormData();
+    formData.append("pdf", file);
+    formData.append("title", file.name.replace(".pdf", ""));
+    try {
+      const res = await axios.post(`${API}/upload-pdf`, formData, { headers: { "Content-Type": "multipart/form-data" } });
+      setDraftText(`[Draft indexed: ${res.data.paper?.title || file.name}]`);
+    } catch {
+      setDraftText(`[Draft uploaded: ${file.name}]`);
+    } finally { setUploadingDraft(false); }
+  }
+
+  // Start session — send initial analysis
+  async function startSession() {
+    if (!selectedMode) return;
+    setPhase("session");
+    setSessionStarted(true);
+
+    const modeObj = MODES.find(m => m.id === selectedMode);
+
+    // Opening message from supervisor
+    const openingMsg = {
+      role: "supervisor",
+      content: `${modeObj.persona}\n\nI've reviewed your ${stats.totalPapers} indexed papers${draftFile ? ` and your draft "${draftFile.name}"` : ""}${researchQuestion ? `, and your research question: "${researchQuestion}"` : ""}. Let me give you my honest initial assessment.`,
+      loading: true,
+    };
+    setMessages([openingMsg]);
+    setIsThinking(true);
+
+    try {
+      const res = await axios.post(`${API}/supervisor/analyze`, {
+        mode: selectedMode,
+        researchQuestion: researchQuestion.trim(),
+        hasDraft: !!draftFile,
+        draftName: draftFile?.name || null,
+      });
+
+      setMessages([{
+        role: "supervisor",
+        content: res.data.analysis,
+        type: "initial_report",
+      }]);
+    } catch (err) {
+      setMessages([{
+        role: "supervisor",
+        content: "I encountered an issue analyzing your papers. Please ensure you have papers indexed and try again.",
+        type: "error",
+      }]);
+    } finally { setIsThinking(false); setTimeout(() => inputRef.current?.focus(), 200); }
+  }
+
+  // Send follow-up message
+  async function handleSend() {
+    const q = input.trim();
+    if (!q || isThinking) return;
+    setInput("");
+
+    const userMsg = { role: "student", content: q };
+    const thinkingMsg = { role: "supervisor", content: "", loading: true };
+    setMessages(prev => [...prev, userMsg, thinkingMsg]);
+    setIsThinking(true);
+
+    try {
+      const history = messages.map(m => ({ role: m.role === "supervisor" ? "assistant" : "user", content: m.content }));
+      const res = await axios.post(`${API}/supervisor/chat`, {
+        message: q,
+        mode: selectedMode,
+        researchQuestion: researchQuestion.trim(),
+        history: history.slice(-10), // last 10 messages for context
+      });
+
+      setMessages(prev => prev.map((m, i) =>
+        i === prev.length - 1 ? { role: "supervisor", content: res.data.reply } : m
+      ));
+    } catch {
+      setMessages(prev => prev.map((m, i) =>
+        i === prev.length - 1 ? { role: "supervisor", content: "Something went wrong. Please try again.", type: "error" } : m
+      ));
+    } finally { setIsThinking(false); setTimeout(() => inputRef.current?.focus(), 100); }
+  }
+
+  function handleCopySession() {
+    const text = messages.map(m => `${m.role === "supervisor" ? "SUPERVISOR" : "YOU"}:\n${m.content}`).join("\n\n---\n\n");
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
+  // ── SETUP SCREEN ──
+  if (phase === "setup") {
+    return (
+      <div style={{ position:"fixed", inset:0, zIndex:500, background:"#07080d", overflow:"auto", animation:"fadeSlideIn 0.4s ease both" }}>
+        {/* Header */}
+        <div style={{ position:"sticky", top:0, zIndex:10, background:"rgba(7,8,13,0.95)", backdropFilter:"blur(20px)", borderBottom:"1px solid rgba(255,255,255,0.06)", padding:"0 40px", height:"64px", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+          <div style={{ display:"flex", alignItems:"center", gap:"12px" }}>
+            <button onClick={onClose} style={{ display:"flex", alignItems:"center", gap:"6px", padding:"6px 12px", background:"transparent", border:"1px solid rgba(255,255,255,0.1)", borderRadius:"8px", color:"rgba(255,255,255,0.5)", fontSize:"12px", cursor:"pointer", fontFamily:"'JetBrains Mono'", transition:"all 0.2s" }}
+              onMouseEnter={e=>{e.currentTarget.style.borderColor="rgba(255,255,255,0.25)"; e.currentTarget.style.color="rgba(255,255,255,0.8)";}}
+              onMouseLeave={e=>{e.currentTarget.style.borderColor="rgba(255,255,255,0.1)"; e.currentTarget.style.color="rgba(255,255,255,0.5)";}}>
+              <ChevronRight size={12} style={{transform:"rotate(180deg)"}}/> Back
+            </button>
+            <div style={{ width:"1px", height:"20px", background:"rgba(255,255,255,0.08)" }}/>
+            <span style={{ fontFamily:"'Playfair Display',serif", fontSize:"16px", color:"rgba(255,255,255,0.9)" }}>AI Research Supervisor</span>
+          </div>
+          <div style={{ display:"flex", alignItems:"center", gap:"8px" }}>
+            <div style={{ padding:"4px 10px", background:"rgba(240,165,0,0.1)", border:"1px solid rgba(240,165,0,0.25)", borderRadius:"6px" }}>
+              <span style={{ color:"var(--gold)", fontSize:"11px", fontFamily:"'JetBrains Mono'" }}>{stats.totalPapers} papers indexed</span>
+            </div>
+          </div>
+        </div>
+
+        <div style={{ maxWidth:"720px", margin:"0 auto", padding:"60px 40px" }}>
+          {/* Hero */}
+          <div style={{ textAlign:"center", marginBottom:"56px" }}>
+            <div style={{ width:"80px", height:"80px", margin:"0 auto 24px", background:"linear-gradient(135deg,rgba(240,165,0,0.15),rgba(240,165,0,0.03))", border:"1px solid rgba(240,165,0,0.2)", borderRadius:"24px", display:"flex", alignItems:"center", justifyContent:"center" }}>
+              <span style={{ fontSize:"36px" }}>👨‍🏫</span>
+            </div>
+            <h1 style={{ fontFamily:"'Playfair Display',serif", fontSize:"36px", fontWeight:700, color:"#fff", marginBottom:"12px", lineHeight:1.2 }}>
+              Meet Your AI Supervisor
+            </h1>
+            <p style={{ color:"rgba(255,255,255,0.45)", fontSize:"15px", fontFamily:"'DM Sans'", lineHeight:1.7, maxWidth:"480px", margin:"0 auto" }}>
+              A world-class research supervisor available 24/7. Get the honest, specific feedback that takes PhD students months to find.
+            </p>
+          </div>
+
+          {/* Step 1 — Pick mode */}
+          <div style={{ marginBottom:"40px" }}>
+            <div style={{ display:"flex", alignItems:"center", gap:"10px", marginBottom:"16px" }}>
+              <span style={{ width:"24px", height:"24px", background:"rgba(240,165,0,0.15)", border:"1px solid rgba(240,165,0,0.3)", borderRadius:"6px", display:"flex", alignItems:"center", justifyContent:"center", fontSize:"11px", color:"var(--gold)", fontFamily:"'JetBrains Mono'", fontWeight:700, flexShrink:0 }}>1</span>
+              <h3 style={{ color:"rgba(255,255,255,0.9)", fontSize:"14px", fontFamily:"'DM Sans'", fontWeight:600 }}>Choose your supervisor's style</h3>
+            </div>
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"10px" }}>
+              {MODES.map(m => (
+                <button key={m.id} onClick={() => setSelectedMode(m.id)}
+                  style={{ padding:"20px", background:selectedMode===m.id?`${m.color}10`:"rgba(255,255,255,0.03)", border:`1px solid ${selectedMode===m.id?m.color+"50":"rgba(255,255,255,0.08)"}`, borderRadius:"14px", cursor:"pointer", textAlign:"left", transition:"all 0.2s", position:"relative" }}>
+                  {selectedMode===m.id && <div style={{ position:"absolute", top:"12px", right:"12px", width:"8px", height:"8px", borderRadius:"50%", background:m.color, boxShadow:`0 0 8px ${m.color}` }}/>}
+                  <div style={{ fontSize:"24px", marginBottom:"10px" }}>{m.emoji}</div>
+                  <p style={{ color:selectedMode===m.id?m.color:"rgba(255,255,255,0.85)", fontSize:"14px", fontFamily:"'DM Sans'", fontWeight:700, marginBottom:"4px" }}>{m.label}</p>
+                  <p style={{ color:"rgba(255,255,255,0.4)", fontSize:"12px", fontFamily:"'JetBrains Mono'", lineHeight:1.5 }}>{m.desc}</p>
+                  {selectedMode===m.id && (
+                    <div style={{ marginTop:"12px", paddingTop:"12px", borderTop:`1px solid ${m.color}25` }}>
+                      <p style={{ color:m.color, fontSize:"11px", fontFamily:"'DM Sans'", fontStyle:"italic", lineHeight:1.6, opacity:0.9 }}>"{m.persona}"</p>
+                    </div>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Step 2 — Research question */}
+          <div style={{ marginBottom:"32px" }}>
+            <div style={{ display:"flex", alignItems:"center", gap:"10px", marginBottom:"16px" }}>
+              <span style={{ width:"24px", height:"24px", background:"rgba(240,165,0,0.15)", border:"1px solid rgba(240,165,0,0.3)", borderRadius:"6px", display:"flex", alignItems:"center", justifyContent:"center", fontSize:"11px", color:"var(--gold)", fontFamily:"'JetBrains Mono'", fontWeight:700, flexShrink:0 }}>2</span>
+              <h3 style={{ color:"rgba(255,255,255,0.9)", fontSize:"14px", fontFamily:"'DM Sans'", fontWeight:600 }}>Your research question <span style={{ color:"rgba(255,255,255,0.3)", fontWeight:400 }}>(optional but recommended)</span></h3>
+            </div>
+            <textarea value={researchQuestion} onChange={e=>setResearchQuestion(e.target.value)} placeholder="e.g. How does retrieval-augmented generation improve factual accuracy in large language models compared to fine-tuning approaches?"
+              style={{ width:"100%", padding:"16px", background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:"12px", color:"rgba(255,255,255,0.85)", fontSize:"14px", fontFamily:"'DM Sans'", outline:"none", resize:"none", lineHeight:1.7, minHeight:"100px", boxSizing:"border-box", transition:"border 0.2s" }}
+              onFocus={e=>e.target.style.borderColor="rgba(240,165,0,0.4)"}
+              onBlur={e=>e.target.style.borderColor="rgba(255,255,255,0.1)"}
+            />
+          </div>
+
+          {/* Step 3 — Upload draft */}
+          <div style={{ marginBottom:"40px" }}>
+            <div style={{ display:"flex", alignItems:"center", gap:"10px", marginBottom:"16px" }}>
+              <span style={{ width:"24px", height:"24px", background:"rgba(240,165,0,0.15)", border:"1px solid rgba(240,165,0,0.3)", borderRadius:"6px", display:"flex", alignItems:"center", justifyContent:"center", fontSize:"11px", color:"var(--gold)", fontFamily:"'JetBrains Mono'", fontWeight:700, flexShrink:0 }}>3</span>
+              <h3 style={{ color:"rgba(255,255,255,0.9)", fontSize:"14px", fontFamily:"'DM Sans'", fontWeight:600 }}>Upload your draft / proposal <span style={{ color:"rgba(255,255,255,0.3)", fontWeight:400 }}>(optional)</span></h3>
+            </div>
+            {!draftFile ? (
+              <div onClick={() => fileInputRef.current?.click()} style={{ border:"2px dashed rgba(255,255,255,0.1)", borderRadius:"12px", padding:"32px", textAlign:"center", cursor:"pointer", transition:"all 0.2s" }}
+                onMouseEnter={e=>{e.currentTarget.style.borderColor="rgba(240,165,0,0.35)"; e.currentTarget.style.background="rgba(240,165,0,0.03)";}}
+                onMouseLeave={e=>{e.currentTarget.style.borderColor="rgba(255,255,255,0.1)"; e.currentTarget.style.background="transparent";}}>
+                <Upload size={24} color="rgba(255,255,255,0.25)" style={{ margin:"0 auto 10px", display:"block" }}/>
+                <p style={{ color:"rgba(255,255,255,0.5)", fontSize:"13px", fontFamily:"'DM Sans'" }}>Drop your thesis draft, proposal, or paper PDF here</p>
+                <p style={{ color:"rgba(255,255,255,0.2)", fontSize:"11px", fontFamily:"'JetBrains Mono'", marginTop:"4px" }}>The supervisor will review it alongside the indexed papers</p>
+                <input ref={fileInputRef} type="file" accept=".pdf" style={{ display:"none" }} onChange={e => { if (e.target.files[0]) handleDraftUpload(e.target.files[0]); }}/>
+              </div>
+            ) : (
+              <div style={{ display:"flex", alignItems:"center", gap:"12px", padding:"16px", background:"rgba(74,222,128,0.06)", border:"1px solid rgba(74,222,128,0.2)", borderRadius:"12px" }}>
+                {uploadingDraft ? <Loader2 size={18} color="#4ade80" style={{ animation:"spin 1s linear infinite", flexShrink:0 }}/> : <CheckCircle2 size={18} color="#4ade80" style={{ flexShrink:0 }}/>}
+                <div style={{ flex:1, minWidth:0 }}>
+                  <p style={{ color:"#4ade80", fontSize:"13px", fontFamily:"'DM Sans'", fontWeight:600 }}>{uploadingDraft ? "Indexing draft..." : "Draft ready"}</p>
+                  <p style={{ color:"rgba(255,255,255,0.4)", fontSize:"11px", fontFamily:"'JetBrains Mono'", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{draftFile.name}</p>
+                </div>
+                <button onClick={() => { setDraftFile(null); setDraftText(""); }} style={{ background:"none", border:"none", cursor:"pointer", color:"rgba(255,255,255,0.3)", padding:"4px" }} onMouseEnter={e=>e.currentTarget.style.color="#f87171"} onMouseLeave={e=>e.currentTarget.style.color="rgba(255,255,255,0.3)"}>
+                  <X size={14}/>
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Start button */}
+          <button onClick={startSession} disabled={!selectedMode || uploadingDraft}
+            style={{ width:"100%", padding:"18px", background:!selectedMode?"rgba(255,255,255,0.05)":"linear-gradient(135deg, var(--gold), #ffcc55)", border:"none", borderRadius:"14px", color:!selectedMode?"rgba(255,255,255,0.2)":"#0a0b0f", fontWeight:700, fontSize:"16px", cursor:!selectedMode?"not-allowed":"pointer", fontFamily:"'DM Sans'", display:"flex", alignItems:"center", justifyContent:"center", gap:"12px", transition:"all 0.3s", boxShadow:selectedMode?"0 4px 32px rgba(240,165,0,0.25)":"none" }}>
+            {selectedMode ? <><span style={{ fontSize:"20px" }}>{mode?.emoji}</span> Start Session with {mode?.label} Supervisor</> : "Select a supervisor style to begin"}
+          </button>
+          {selectedMode && <p style={{ textAlign:"center", color:"rgba(255,255,255,0.25)", fontSize:"11px", fontFamily:"'JetBrains Mono'", marginTop:"12px" }}>Analysis takes ~15 seconds · Uses {stats.totalPapers} indexed papers</p>}
+        </div>
+      </div>
+    );
+  }
+
+  // ── SESSION SCREEN ──
+  const modeColor = mode?.color || "var(--gold)";
+
+  return (
+    <div style={{ position:"fixed", inset:0, zIndex:500, background:"#07080d", display:"flex", flexDirection:"column", animation:"fadeSlideIn 0.3s ease both" }}>
+      {/* Header */}
+      <div style={{ flexShrink:0, borderBottom:"1px solid rgba(255,255,255,0.06)", background:"rgba(7,8,13,0.95)", backdropFilter:"blur(20px)", padding:"0 32px", height:"60px", display:"flex", alignItems:"center", justifyContent:"space-between", zIndex:10 }}>
+        <div style={{ display:"flex", alignItems:"center", gap:"12px" }}>
+          <button onClick={onClose} style={{ display:"flex", alignItems:"center", gap:"6px", padding:"5px 10px", background:"transparent", border:"1px solid rgba(255,255,255,0.08)", borderRadius:"7px", color:"rgba(255,255,255,0.4)", fontSize:"11px", cursor:"pointer", fontFamily:"'JetBrains Mono'", transition:"all 0.2s" }}
+            onMouseEnter={e=>{e.currentTarget.style.borderColor="rgba(255,255,255,0.2)";e.currentTarget.style.color="rgba(255,255,255,0.7)";}}
+            onMouseLeave={e=>{e.currentTarget.style.borderColor="rgba(255,255,255,0.08)";e.currentTarget.style.color="rgba(255,255,255,0.4)";}}>
+            <ChevronRight size={11} style={{transform:"rotate(180deg)"}}/> Exit
+          </button>
+          <div style={{ display:"flex", alignItems:"center", gap:"8px" }}>
+            <span style={{ fontSize:"20px" }}>{mode?.emoji}</span>
+            <div>
+              <p style={{ color:"rgba(255,255,255,0.9)", fontSize:"13px", fontFamily:"'DM Sans'", fontWeight:600, lineHeight:1 }}>AI Research Supervisor</p>
+              <p style={{ color:modeColor, fontSize:"10px", fontFamily:"'JetBrains Mono'", opacity:0.8, marginTop:"2px" }}>{mode?.label} Mode</p>
+            </div>
+          </div>
+        </div>
+        <div style={{ display:"flex", alignItems:"center", gap:"8px" }}>
+          {researchQuestion && <div style={{ padding:"4px 10px", background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:"6px", maxWidth:"240px", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+            <span style={{ color:"rgba(255,255,255,0.35)", fontSize:"10px", fontFamily:"'JetBrains Mono'" }}>"{researchQuestion.slice(0,45)}{researchQuestion.length>45?"...":""}"</span>
+          </div>}
+          <button onClick={handleCopySession} style={{ display:"flex", alignItems:"center", gap:"5px", padding:"5px 10px", background:copied?"rgba(74,222,128,0.1)":"rgba(255,255,255,0.04)", border:`1px solid ${copied?"rgba(74,222,128,0.3)":"rgba(255,255,255,0.08)"}`, borderRadius:"7px", color:copied?"#4ade80":"rgba(255,255,255,0.4)", fontSize:"11px", cursor:"pointer", fontFamily:"'JetBrains Mono'", transition:"all 0.2s" }}>
+            {copied ? <><Check size={10}/> Copied</> : <><Copy size={10}/> Copy Session</>}
+          </button>
+          <button onClick={() => { setPhase("setup"); setMessages([]); setSessionStarted(false); }} style={{ padding:"5px 10px", background:"transparent", border:"1px solid rgba(255,255,255,0.08)", borderRadius:"7px", color:"rgba(255,255,255,0.35)", fontSize:"11px", cursor:"pointer", fontFamily:"'JetBrains Mono'", transition:"all 0.2s" }}
+            onMouseEnter={e=>{e.currentTarget.style.borderColor="rgba(240,165,0,0.3)"; e.currentTarget.style.color="var(--gold)";}}
+            onMouseLeave={e=>{e.currentTarget.style.borderColor="rgba(255,255,255,0.08)"; e.currentTarget.style.color="rgba(255,255,255,0.35)";}}>
+            New Session
+          </button>
+        </div>
+      </div>
+
+      {/* Main layout — 2 columns */}
+      <div style={{ flex:1, display:"flex", overflow:"hidden" }}>
+
+        {/* Left panel */}
+        <div style={{ width:"260px", flexShrink:0, borderRight:"1px solid rgba(255,255,255,0.05)", padding:"24px 20px", overflowY:"auto", display:"flex", flexDirection:"column", gap:"20px" }}>
+          {/* Context */}
+          <div>
+            <p style={{ color:"rgba(255,255,255,0.25)", fontSize:"10px", fontFamily:"'JetBrains Mono'", letterSpacing:"0.1em", marginBottom:"10px" }}>SESSION CONTEXT</p>
+            <div style={{ display:"flex", flexDirection:"column", gap:"8px" }}>
+              <div style={{ padding:"10px 12px", background:"rgba(255,255,255,0.03)", border:"1px solid rgba(255,255,255,0.07)", borderRadius:"8px" }}>
+                <p style={{ color:"rgba(255,255,255,0.35)", fontSize:"10px", fontFamily:"'JetBrains Mono'", marginBottom:"4px" }}>PAPERS ANALYZED</p>
+                <p style={{ color:"rgba(255,255,255,0.8)", fontSize:"18px", fontFamily:"'JetBrains Mono'", fontWeight:700 }}>{stats.totalPapers}</p>
+              </div>
+              {draftFile && (
+                <div style={{ padding:"10px 12px", background:"rgba(74,222,128,0.05)", border:"1px solid rgba(74,222,128,0.15)", borderRadius:"8px" }}>
+                  <p style={{ color:"#4ade80", fontSize:"10px", fontFamily:"'JetBrains Mono'", marginBottom:"4px" }}>DRAFT UPLOADED</p>
+                  <p style={{ color:"rgba(255,255,255,0.6)", fontSize:"11px", fontFamily:"'DM Sans'", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{draftFile.name}</p>
+                </div>
+              )}
+              {researchQuestion && (
+                <div style={{ padding:"10px 12px", background:`${modeColor}08`, border:`1px solid ${modeColor}20`, borderRadius:"8px" }}>
+                  <p style={{ color:modeColor, fontSize:"10px", fontFamily:"'JetBrains Mono'", marginBottom:"4px", opacity:0.8 }}>RESEARCH QUESTION</p>
+                  <p style={{ color:"rgba(255,255,255,0.55)", fontSize:"11px", fontFamily:"'DM Sans'", lineHeight:1.5 }}>{researchQuestion.slice(0,100)}{researchQuestion.length>100?"...":""}</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Mode switcher */}
+          <div>
+            <p style={{ color:"rgba(255,255,255,0.25)", fontSize:"10px", fontFamily:"'JetBrains Mono'", letterSpacing:"0.1em", marginBottom:"10px" }}>SWITCH MODE</p>
+            <div style={{ display:"flex", flexDirection:"column", gap:"6px" }}>
+              {MODES.map(m => (
+                <button key={m.id} onClick={() => setSelectedMode(m.id)}
+                  style={{ display:"flex", alignItems:"center", gap:"8px", padding:"8px 10px", background:selectedMode===m.id?`${m.color}10`:"transparent", border:`1px solid ${selectedMode===m.id?m.color+"40":"rgba(255,255,255,0.06)"}`, borderRadius:"8px", cursor:"pointer", transition:"all 0.2s", textAlign:"left" }}>
+                  <span style={{ fontSize:"14px" }}>{m.emoji}</span>
+                  <span style={{ color:selectedMode===m.id?m.color:"rgba(255,255,255,0.45)", fontSize:"12px", fontFamily:"'DM Sans'", fontWeight:selectedMode===m.id?600:400 }}>{m.label}</span>
+                  {selectedMode===m.id && <div style={{ marginLeft:"auto", width:"6px", height:"6px", borderRadius:"50%", background:m.color, flexShrink:0 }}/>}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Quick prompts */}
+          <div>
+            <p style={{ color:"rgba(255,255,255,0.25)", fontSize:"10px", fontFamily:"'JetBrains Mono'", letterSpacing:"0.1em", marginBottom:"10px" }}>QUICK QUESTIONS</p>
+            <div style={{ display:"flex", flexDirection:"column", gap:"6px" }}>
+              {[
+                "What is the biggest weakness in my work?",
+                "How can I narrow my hypothesis?",
+                "What should I do next?",
+                "What do the papers disagree on?",
+                "Am I ready to write?",
+              ].map(q => (
+                <button key={q} onClick={() => { setInput(q); inputRef.current?.focus(); }}
+                  style={{ padding:"8px 10px", background:"transparent", border:"1px solid rgba(255,255,255,0.06)", borderRadius:"7px", color:"rgba(255,255,255,0.35)", fontSize:"11px", fontFamily:"'DM Sans'", cursor:"pointer", textAlign:"left", lineHeight:1.4, transition:"all 0.15s" }}
+                  onMouseEnter={e=>{e.currentTarget.style.borderColor=modeColor+"40"; e.currentTarget.style.color="rgba(255,255,255,0.7)";}}
+                  onMouseLeave={e=>{e.currentTarget.style.borderColor="rgba(255,255,255,0.06)"; e.currentTarget.style.color="rgba(255,255,255,0.35)";}}>
+                  {q}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Chat area */}
+        <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden" }}>
+          {/* Messages */}
+          <div style={{ flex:1, overflowY:"auto", padding:"32px 40px" }}>
+            {messages.map((msg, i) => {
+              const isSuper = msg.role === "supervisor";
+              return (
+                <div key={i} style={{ display:"flex", gap:"14px", alignItems:"flex-start", marginBottom:"28px", animation:"fadeSlideIn 0.3s ease both" }}>
+                  {isSuper && (
+                    <div style={{ width:"36px", height:"36px", flexShrink:0, background:`${modeColor}15`, border:`1px solid ${modeColor}30`, borderRadius:"12px", display:"flex", alignItems:"center", justifyContent:"center", fontSize:"18px" }}>
+                      {mode?.emoji}
+                    </div>
+                  )}
+                  <div style={{ flex:1, maxWidth: isSuper ? "100%" : "75%", marginLeft: isSuper ? 0 : "auto" }}>
+                    {isSuper && <p style={{ color:modeColor, fontSize:"11px", fontFamily:"'JetBrains Mono'", marginBottom:"8px", opacity:0.8 }}>{mode?.label} Supervisor</p>}
+                    <div style={{ background: isSuper ? "rgba(255,255,255,0.03)" : `${modeColor}12`, border: `1px solid ${isSuper ? "rgba(255,255,255,0.07)" : modeColor+"30"}`, borderRadius: isSuper ? "4px 16px 16px 16px" : "16px 4px 16px 16px", padding:"18px 22px" }}>
+                      {msg.loading ? (
+                        <div style={{ display:"flex", alignItems:"center", gap:"10px" }}>
+                          <Loader2 size={14} color={modeColor} style={{ animation:"spin 1s linear infinite" }}/>
+                          <span style={{ color:"rgba(255,255,255,0.4)", fontSize:"13px", fontFamily:"'JetBrains Mono'" }}>Analyzing your research...</span>
+                        </div>
+                      ) : (
+                        <p style={{ color: isSuper ? "rgba(255,255,255,0.8)" : "rgba(255,255,255,0.9)", fontSize:"14px", fontFamily:"'DM Sans'", lineHeight:1.9, whiteSpace:"pre-wrap" }}>{msg.content}</p>
+                      )}
+                    </div>
+                    {!isSuper && <p style={{ color:"rgba(255,255,255,0.2)", fontSize:"10px", fontFamily:"'JetBrains Mono'", textAlign:"right", marginTop:"5px" }}>You</p>}
+                  </div>
+                  {!isSuper && (
+                    <div style={{ width:"36px", height:"36px", flexShrink:0, background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:"12px", display:"flex", alignItems:"center", justifyContent:"center" }}>
+                      <User size={16} color="rgba(255,255,255,0.5)"/>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+            <div ref={chatEndRef}/>
+          </div>
+
+          {/* Input */}
+          <div style={{ flexShrink:0, borderTop:"1px solid rgba(255,255,255,0.06)", padding:"20px 40px", background:"rgba(7,8,13,0.8)" }}>
+            <div style={{ display:"flex", gap:"10px", alignItems:"flex-end", maxWidth:"100%" }}>
+              <textarea ref={inputRef} value={input} onChange={e => { setInput(e.target.value); e.target.style.height="48px"; e.target.style.height=Math.min(e.target.scrollHeight,140)+"px"; }}
+                onKeyDown={e => { if (e.key==="Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
+                placeholder={isThinking ? "Supervisor is thinking..." : "Reply to your supervisor, ask a question, or share your thoughts..."}
+                disabled={isThinking}
+                rows={1}
+                style={{ flex:1, background:"rgba(255,255,255,0.04)", border:`1px solid ${isThinking?"rgba(255,255,255,0.05)":modeColor+"30"}`, borderRadius:"12px", padding:"14px 18px", color:"rgba(255,255,255,0.85)", fontSize:"14px", fontFamily:"'DM Sans'", outline:"none", resize:"none", minHeight:"48px", maxHeight:"140px", lineHeight:1.6, transition:"border 0.2s" }}
+                onFocus={e=>e.target.style.borderColor=modeColor+"60"}
+                onBlur={e=>e.target.style.borderColor=modeColor+"30"}
+              />
+              <button onClick={handleSend} disabled={!input.trim() || isThinking}
+                style={{ width:"48px", height:"48px", flexShrink:0, background:(!input.trim()||isThinking)?"rgba(255,255,255,0.04)":`linear-gradient(135deg,${modeColor},${modeColor}cc)`, border:"none", borderRadius:"12px", cursor:(!input.trim()||isThinking)?"not-allowed":"pointer", display:"flex", alignItems:"center", justifyContent:"center", transition:"all 0.2s", boxShadow:input.trim()&&!isThinking?`0 4px 16px ${modeColor}30`:"none" }}>
+                {isThinking ? <Loader2 size={16} color="rgba(255,255,255,0.3)" style={{ animation:"spin 1s linear infinite" }}/> : <Send size={16} color={!input.trim()?"rgba(255,255,255,0.2)":"#0a0b0f"}/>}
+              </button>
+            </div>
+            <p style={{ color:"rgba(255,255,255,0.15)", fontSize:"10px", fontFamily:"'JetBrains Mono'", marginTop:"8px", textAlign:"center" }}>Enter to send · Shift+Enter for new line · Switch modes anytime in the left panel</p>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }

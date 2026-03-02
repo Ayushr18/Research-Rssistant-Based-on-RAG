@@ -527,7 +527,104 @@ cron.schedule("0 8 * * 1", () => {
   sendWeeklyDigests();
 });
 
-// ─── ROUTE 11: 🔍 Research Gap Finder ───
+// ─── ROUTE 11: 👨‍🏫 AI Supervisor — Initial Analysis ───
+app.post("/api/supervisor/analyze", async (req, res) => {
+  try {
+    const { mode, researchQuestion, hasDraft, draftName } = req.body;
+    const DB_PATH = new URL("./data/vectorStore.json", import.meta.url);
+    const raw = fs.readFileSync(DB_PATH, "utf-8");
+    const db  = JSON.parse(raw);
+
+    const paperMap = new Map();
+    (db.chunks || []).forEach(chunk => {
+      const id = chunk.metadata?.paperId;
+      if (id && !paperMap.has(id)) paperMap.set(id, {
+        title: chunk.metadata.title || "Untitled",
+        abstract: chunk.metadata.abstract?.slice(0, 200) || "N/A",
+        published: chunk.metadata.published || "Unknown",
+      });
+    });
+    const papers = Array.from(paperMap.values()).slice(0, 10);
+
+    const modePersonas = {
+      supportive: "You are a warm, encouraging academic supervisor. You give honest but kind feedback. Highlight strengths first, then address weaknesses constructively.",
+      strict:     "You are a rigorous, demanding professor with very high standards. Give direct, unfiltered criticism. Be blunt about weaknesses.",
+      focused:    "You are a methodology specialist. Focus ONLY on research design, methodology, validity, and rigor.",
+      interdisciplinary: "You are a broad-thinking academic who connects research across fields. Identify cross-field connections that could strengthen the research.",
+    };
+
+    const contextParts = [
+      `The student has indexed ${papers.length} papers:`,
+      papers.map((p, i) => `[${i+1}] "${p.title}" (${p.published}): ${p.abstract}`).join("\n"),
+      researchQuestion ? `\nStudent research question: "${researchQuestion}"` : "",
+      hasDraft ? `\nStudent uploaded draft: "${draftName}"` : "",
+    ].filter(Boolean).join("\n");
+
+    const prompt = `${modePersonas[mode] || modePersonas.supportive}
+
+You are conducting an academic supervision session. Context:
+${contextParts}
+
+Give your initial supervision assessment covering:
+1. RESEARCH POSITION — Where does this work sit in the literature?
+2. CRITICAL WEAKNESSES — The 2-3 most important problems right now
+3. GENUINE STRENGTHS — What is actually good or promising
+4. TOP 3 ACTIONS — Specific, concrete next steps
+5. SUPERVISOR QUESTIONS — 2-3 pointed questions for the student to answer
+
+Be specific. Reference actual paper titles. Under 500 words but make every word count.`;
+
+    const response = await groq.chat.completions.create({
+      model: "llama-3.3-70b-versatile",
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.6,
+      max_tokens: 1000,
+    });
+
+    res.json({ success: true, analysis: response.choices[0].message.content });
+  } catch (error) {
+    console.error("Supervisor analyze error:", error);
+    res.status(500).json({ error: "Failed to analyze: " + error.message });
+  }
+});
+
+// ─── ROUTE 11b: 👨‍🏫 AI Supervisor — Follow-up Chat ───
+app.post("/api/supervisor/chat", async (req, res) => {
+  try {
+    const { message, mode, researchQuestion, history } = req.body;
+
+    const modePersonas = {
+      supportive:        "You are a warm, encouraging academic supervisor. Be honest but kind.",
+      strict:            "You are a rigorous, demanding professor. Be direct and unfiltered.",
+      focused:           "You are a methodology specialist. Focus only on research design.",
+      interdisciplinary: "You are a broad-thinking academic connecting research across fields.",
+    };
+
+    const systemPrompt = `${modePersonas[mode] || modePersonas.supportive}
+You are in an ongoing supervision session${researchQuestion ? ` about: "${researchQuestion}"` : ""}. 
+Respond to the student. Be specific, helpful, and stay in character. Under 300 words.`;
+
+    const messages = [
+      { role: "system", content: systemPrompt },
+      ...(history || []).map(m => ({ role: m.role === "supervisor" ? "assistant" : "user", content: m.content })),
+      { role: "user", content: message },
+    ];
+
+    const response = await groq.chat.completions.create({
+      model: "llama-3.3-70b-versatile",
+      messages,
+      temperature: 0.65,
+      max_tokens: 600,
+    });
+
+    res.json({ success: true, reply: response.choices[0].message.content });
+  } catch (error) {
+    console.error("Supervisor chat error:", error);
+    res.status(500).json({ error: "Failed to respond: " + error.message });
+  }
+});
+
+// ─── ROUTE 12: 🔍 Research Gap Finder ───
 app.post("/api/research-gaps", async (req, res) => {
   try {
     const DB_PATH = new URL("./data/vectorStore.json", import.meta.url);
