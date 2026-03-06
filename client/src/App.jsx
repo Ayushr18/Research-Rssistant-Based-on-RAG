@@ -599,6 +599,7 @@ function RabbitHolePage({ stats, indexedPapers, onClose }) {
   const containerRef = useRef(null);
   const simulationRef = useRef(null);
 
+  const [isMobile, setIsMobile] = useState(false);
   const [phase, setPhase]             = useState("select"); // select | loading | graph
   const [seedPaper, setSeedPaper]     = useState(null);
   const [graphData, setGraphData]     = useState(null);
@@ -608,6 +609,13 @@ function RabbitHolePage({ stats, indexedPapers, onClose }) {
   const [error, setError]             = useState("");
   const [zoomLevel, setZoomLevel]     = useState(1);
   const zoomRef = useRef(null);
+
+  useEffect(() => {
+    function check() { setIsMobile(window.innerWidth < 700); }
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   const available = indexedPapers.length > 0 ? indexedPapers : [];
 
@@ -745,12 +753,13 @@ function RabbitHolePage({ stats, indexedPapers, onClose }) {
       gridGroup.append("line").attr("x1", -W).attr("y1", y).attr("x2", W*2).attr("y2", y).attr("stroke", "#fff").attr("stroke-width", 0.5);
     }
 
-    // Force simulation
+    // Force simulation — tighter distances on mobile
+    const isMob = W < 500;
     const simulation = d3.forceSimulation(nodes)
-      .force("link", d3.forceLink(links).id(d => d.id).distance(d => d.strength==="strong"?160:d.strength==="medium"?220:280).strength(d => d.strength==="strong"?0.8:0.5))
-      .force("charge", d3.forceManyBody().strength(-400))
+      .force("link", d3.forceLink(links).id(d => d.id).distance(d => isMob ? (d.strength==="strong"?80:d.strength==="medium"?110:140) : (d.strength==="strong"?160:d.strength==="medium"?220:280)).strength(d => d.strength==="strong"?0.8:0.5))
+      .force("charge", d3.forceManyBody().strength(isMob ? -200 : -400))
       .force("center", d3.forceCenter(W/2, H/2))
-      .force("collision", d3.forceCollide(50));
+      .force("collision", d3.forceCollide(isMob ? 30 : 50));
 
     simulationRef.current = simulation;
 
@@ -894,20 +903,20 @@ function RabbitHolePage({ stats, indexedPapers, onClose }) {
     return (
       <div style={{ position:"fixed",inset:0,zIndex:500,background:"#07080d",overflow:"auto",animation:"fadeSlideIn 0.4s ease both" }}>
         {/* Header */}
-        <div style={{ position:"sticky",top:0,zIndex:10,background:"rgba(7,8,13,0.95)",backdropFilter:"blur(20px)",borderBottom:"1px solid rgba(255,255,255,0.06)",padding:"0 40px",height:"56px",display:"flex",alignItems:"center",justifyContent:"space-between" }}>
+        <div style={{ position:"sticky",top:0,zIndex:10,background:"rgba(7,8,13,0.95)",backdropFilter:"blur(20px)",borderBottom:"1px solid rgba(255,255,255,0.06)",padding:isMobile?"0 16px":"0 40px",height:"56px",display:"flex",alignItems:"center",justifyContent:"space-between" }}>
           <div style={{ display:"flex",alignItems:"center",gap:"10px" }}>
             <button onClick={onClose} style={{ display:"flex",alignItems:"center",gap:"5px",padding:"5px 10px",background:"transparent",border:"1px solid rgba(255,255,255,0.1)",borderRadius:"8px",color:"rgba(255,255,255,0.5)",fontSize:"12px",cursor:"pointer",fontFamily:"'JetBrains Mono'" }}>
               <ChevronRight size={12} style={{ transform:"rotate(180deg)" }}/> Back
             </button>
             <div style={{ width:"1px",height:"20px",background:"rgba(255,255,255,0.08)" }}/>
-            <span style={{ fontFamily:"'Playfair Display',serif",fontSize:"16px",color:"rgba(255,255,255,0.9)" }}>Research Rabbit Hole</span>
+            {!isMobile && <span style={{ fontFamily:"'Playfair Display',serif",fontSize:"16px",color:"rgba(255,255,255,0.9)" }}>Research Rabbit Hole</span>}
           </div>
           <div style={{ padding:"4px 10px",background:"rgba(240,165,0,0.1)",border:"1px solid rgba(240,165,0,0.25)",borderRadius:"6px" }}>
             <span style={{ color:"var(--gold)",fontSize:"11px",fontFamily:"'JetBrains Mono'" }}>{stats.totalPapers} papers indexed</span>
           </div>
         </div>
 
-        <div style={{ maxWidth:"680px",margin:"0 auto",padding:"60px 40px" }}>
+        <div style={{ maxWidth:"680px",margin:"0 auto",padding:isMobile?"24px 16px 40px":"60px 40px" }}>
           {/* Hero */}
           <div style={{ textAlign:"center",marginBottom:"56px" }}>
             <div style={{ width:"80px",height:"80px",margin:"0 auto 20px",background:"linear-gradient(135deg,rgba(167,139,250,0.15),rgba(96,165,250,0.05))",border:"1px solid rgba(167,139,250,0.2)",borderRadius:"24px",display:"flex",alignItems:"center",justifyContent:"center",position:"relative" }}>
@@ -1067,27 +1076,29 @@ function RabbitHolePage({ stats, indexedPapers, onClose }) {
           </div>
 
           {/* Legend bottom right */}
-          <div style={{ position:"absolute",bottom:"20px",right: selectedNode ? "360px" : "20px",background:"rgba(5,6,11,0.85)",border:"1px solid rgba(255,255,255,0.08)",borderRadius:"10px",padding:"10px 14px",transition:"right 0.3s ease" }}>
+          <div style={{ position:"absolute",bottom:"20px",right: (!isMobile && selectedNode) ? "360px" : "20px",background:"rgba(5,6,11,0.85)",border:"1px solid rgba(255,255,255,0.08)",borderRadius:"10px",padding:"10px 14px",transition:"right 0.3s ease" }}>
             <p style={{ color:"rgba(255,255,255,0.25)",fontSize:"9px",fontFamily:"'JetBrains Mono'",letterSpacing:"0.1em",marginBottom:"8px" }}>LEGEND</p>
             <Legend/>
           </div>
 
-          {/* Graph insight */}
-          {graphData?.graphInsight && (
+          {/* Graph insight — desktop only to avoid overlap */}
+          {graphData?.graphInsight && !isMobile && (
             <div style={{ position:"absolute",top:"16px",left:"50%",transform:"translateX(-50%)",background:"rgba(5,6,11,0.85)",border:"1px solid rgba(167,139,250,0.2)",borderRadius:"8px",padding:"8px 14px",maxWidth:"500px",textAlign:"center",pointerEvents:"none" }}>
               <p style={{ color:"rgba(167,139,250,0.8)",fontSize:"11px",fontFamily:"'DM Sans'" }}>{graphData.graphInsight}</p>
             </div>
           )}
 
           {/* Hint */}
-          <div style={{ position:"absolute",top:"16px",left:"16px",background:"rgba(5,6,11,0.7)",border:"1px solid rgba(255,255,255,0.06)",borderRadius:"8px",padding:"7px 12px" }}>
-            <p style={{ color:"rgba(255,255,255,0.25)",fontSize:"10px",fontFamily:"'JetBrains Mono'" }}>Click node to inspect · Drag to move · Scroll to zoom · Click + to expand</p>
+          <div style={{ position:"absolute",top:"16px",left:"16px",background:"rgba(5,6,11,0.7)",border:"1px solid rgba(255,255,255,0.06)",borderRadius:"8px",padding:"7px 10px" }}>
+            <p style={{ color:"rgba(255,255,255,0.25)",fontSize:"10px",fontFamily:"'JetBrains Mono'" }}>
+              {isMobile ? "Tap node · Pinch to zoom · + to expand" : "Click node to inspect · Drag to move · Scroll to zoom · Click + to expand"}
+            </p>
           </div>
         </div>
 
-        {/* Right sidebar: selected node details */}
+        {/* Right sidebar: full-screen overlay on mobile, fixed panel on desktop */}
         {selectedNode && (
-          <div style={{ width:"340px",flexShrink:0,borderLeft:"1px solid rgba(255,255,255,0.06)",background:"rgba(7,8,13,0.98)",overflowY:"auto",animation:"fadeSlideIn 0.25s ease both" }}>
+          <div style={isMobile ? { position:"fixed",inset:0,zIndex:20,background:"rgba(7,8,13,0.98)",overflowY:"auto",animation:"fadeSlideIn 0.25s ease both" } : { width:"340px",flexShrink:0,borderLeft:"1px solid rgba(255,255,255,0.06)",background:"rgba(7,8,13,0.98)",overflowY:"auto",animation:"fadeSlideIn 0.25s ease both" }}>
             <div style={{ padding:"20px" }}>
               {/* Node type badge */}
               <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"14px" }}>
@@ -1383,7 +1394,7 @@ export default function App() {
         .hero-badge { display: inline-flex; align-items: center; gap: 6px; background: var(--gold-glow); border: 1px solid rgba(240,165,0,0.25); border-radius: 20px; padding: 5px 14px; margin-bottom: 24px; }
         .hero-title { font-family: 'Playfair Display', serif; font-size: clamp(28px, 5vw, 58px); font-weight: 700; line-height: 1.1; letter-spacing: -0.03em; margin-bottom: 16px; }
         .hero-subtitle { color: var(--text-secondary); font-size: 16px; max-width: 520px; margin: 0 auto; line-height: 1.7; }
-        .tab-bar { display: flex; gap: 4px; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 12px; padding: 4px; margin-bottom: 32px; animation: fadeSlideIn 0.6s ease 0.1s both; overflow-x: auto; scrollbar-width: none; }
+        .tab-bar { display: flex; gap: 4px; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 12px; padding: 4px; margin-bottom: 20px; animation: fadeSlideIn 0.6s ease 0.1s both; overflow-x: auto; scrollbar-width: none; }
         .tab-bar::-webkit-scrollbar { display: none; }
         .tab-label { display: inline; }
         .tab-btn { flex: 1; display: flex; align-items: center; justify-content: center; gap: 7px; padding: 10px 16px; border-radius: 8px; cursor: pointer; font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 500; transition: all 0.2s ease; white-space: nowrap; }
@@ -1394,7 +1405,11 @@ export default function App() {
         .source-btn { padding: 12px 16px; border-radius: 10px; cursor: pointer; text-align: left; transition: all 0.2s; }
         .source-btn-label { font-size: 13px; font-weight: 600; font-family: 'DM Sans', sans-serif; margin-bottom: 3px; }
         .source-btn-sub { font-size: 11px; color: var(--text-muted); font-family: 'JetBrains Mono'; }
-        .search-row { display: flex; gap: 12px; margin-bottom: 16px; align-items: stretch; }
+        .search-row { display: flex; gap: 10px; margin-bottom: 16px; align-items: stretch; flex-wrap: wrap; }
+        .search-input-wrap { min-width: 0; flex: 1 1 100%; }
+        .count-select { flex: 1 1 auto; }
+        .action-btn-search { flex: 1 1 auto; justify-content: center; }
+        @media (min-width: 520px) { .search-input-wrap { flex: 1 1 0; } }
         .search-input-wrap { flex: 1; position: relative; min-width: 0; }
         .search-input-icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-muted); pointer-events: none; }
         .search-input { width: 100%; padding: 13px 16px 13px 42px; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 10px; color: var(--text-primary); font-size: 14px; font-family: 'DM Sans', sans-serif; outline: none; transition: border 0.2s; }
@@ -1414,16 +1429,36 @@ export default function App() {
         .send-btn { width: 44px; height: 44px; flex-shrink: 0; border: none; border-radius: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
         .mic-active { animation: micPulse 1.2s ease infinite; }
         @media (max-width: 768px) {
-          .header-inner { padding: 0 20px; height: 56px; } .chunks-pill { display: none; }
-          .main-content { padding: 24px 16px 60px; } .panel-card { padding: 20px 16px; }
-          .source-grid { grid-template-columns: repeat(2, 1fr); } .search-row { flex-wrap: wrap; }
-          .papers-grid { grid-template-columns: 1fr; } .tab-btn { font-size: 12px; padding: 10px 12px; }
+          .header-inner { padding: 0 16px; height: 52px; }
+          .chunks-pill { display: none; }
+          .main-content { padding: 20px 14px 60px; }
+          .panel-card { padding: 18px 14px; }
+          .source-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+          .search-row { flex-wrap: wrap; }
+          .papers-grid { grid-template-columns: 1fr; }
+          .tab-btn { font-size: 12px; padding: 10px 10px; }
+          .hero-section { margin-bottom: 28px; }
+          .hero-subtitle { font-size: 13px; }
+          .hero-badge { margin-bottom: 14px; }
         }
-        @media (max-width: 600px) { .tab-label { display: none; } .tab-btn { flex: 1; padding: 12px 8px; min-width: 44px; } }
+        @media (max-width: 600px) {
+          .tab-label { display: none; }
+          .tab-btn { flex: 1; padding: 11px 6px; min-width: 40px; }
+          .hero-title { font-size: 26px !important; }
+        }
         @media (max-width: 480px) {
-          .header-inner { padding: 0 14px; } .stat-pill { display: none; }
-          .main-content { padding: 16px 12px 60px; } .panel-card { padding: 16px 14px; }
-          .source-grid { gap: 8px; } .source-btn-sub { display: none; }
+          .header-inner { padding: 0 12px; }
+          .stat-pill { display: none; }
+          .main-content { padding: 14px 10px 60px; }
+          .panel-card { padding: 14px 12px; }
+          .source-grid { gap: 6px; }
+          .source-btn-sub { display: none; }
+          .source-btn { padding: 10px 10px; }
+          .hero-title { font-size: 22px !important; line-height: 1.2; }
+          .hero-subtitle { font-size: 12px; }
+          .header-logo-text { font-size: 16px; }
+          .feature-cards { grid-template-columns: 1fr !important; gap: 8px !important; }
+          .panel-title { font-size: 17px; }
         }
       `}</style>
 
@@ -1489,7 +1524,7 @@ export default function App() {
               Understand research papers<br/>
               <span style={{ background:"linear-gradient(135deg,var(--gold),#ffcc55)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent" }}>in seconds, not hours</span>
             </h1>
-            <p className="hero-subtitle">Search across ArXiv, PubMed, Semantic Scholar and ChemRxiv — or upload your own PDF.</p>
+            <p className="hero-subtitle">Search ArXiv, PubMed, Semantic Scholar, ChemRxiv — or upload your PDF.</p>
           </div>
 
           <div className="tab-bar">
@@ -1509,17 +1544,17 @@ export default function App() {
           </div>
 
           {/* Feature entry cards */}
-          <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px",marginBottom:"32px",animation:"fadeSlideIn 0.6s ease 0.15s both" }}>
+          <div className="feature-cards" style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:"12px",marginBottom:"24px",animation:"fadeSlideIn 0.6s ease 0.15s both" }}>
             {/* AI Supervisor */}
             <button onClick={() => setShowSupervisor(true)}
-              style={{ padding:"16px 20px",background:"linear-gradient(135deg,rgba(240,165,0,0.08),rgba(240,165,0,0.02))",border:"1px solid rgba(240,165,0,0.2)",borderRadius:"14px",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"space-between",transition:"all 0.2s",gap:"12px",textAlign:"left" }}
+              style={{ padding:"12px 14px",background:"linear-gradient(135deg,rgba(240,165,0,0.08),rgba(240,165,0,0.02))",border:"1px solid rgba(240,165,0,0.2)",borderRadius:"14px",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"space-between",transition:"all 0.2s",gap:"8px",textAlign:"left",overflow:"hidden" }}
               onMouseEnter={e=>{e.currentTarget.style.borderColor="rgba(240,165,0,0.4)";e.currentTarget.style.background="linear-gradient(135deg,rgba(240,165,0,0.12),rgba(240,165,0,0.04))";}}
               onMouseLeave={e=>{e.currentTarget.style.borderColor="rgba(240,165,0,0.2)";e.currentTarget.style.background="linear-gradient(135deg,rgba(240,165,0,0.08),rgba(240,165,0,0.02))";}}>
-              <div style={{ display:"flex",alignItems:"center",gap:"12px" }}>
-                <div style={{ width:"38px",height:"38px",background:"linear-gradient(135deg,rgba(240,165,0,0.2),rgba(240,165,0,0.05))",border:"1px solid rgba(240,165,0,0.3)",borderRadius:"10px",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontSize:"18px" }}>👨‍🏫</div>
-                <div>
-                  <p style={{ color:"var(--gold)",fontSize:"13px",fontWeight:700,marginBottom:"2px" }}>AI Research Supervisor</p>
-                  <p style={{ color:"var(--text-muted)",fontSize:"11px",fontFamily:"'JetBrains Mono'" }}>Expert feedback on your research</p>
+              <div style={{ display:"flex",alignItems:"center",gap:"8px",minWidth:0,flex:1,overflow:"hidden" }}>
+                <div style={{ width:"32px",height:"32px",background:"linear-gradient(135deg,rgba(240,165,0,0.2),rgba(240,165,0,0.05))",border:"1px solid rgba(240,165,0,0.3)",borderRadius:"8px",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontSize:"15px" }}>👨‍🏫</div>
+                <div style={{ minWidth:0 }}>
+                  <p style={{ color:"var(--gold)",fontSize:"13px",fontWeight:700,marginBottom:"2px",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis" }}>AI Research Supervisor</p>
+                  <p style={{ color:"var(--text-muted)",fontSize:"11px",fontFamily:"'JetBrains Mono'",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis" }}>Expert feedback on your research</p>
                 </div>
               </div>
               <ChevronRight size={14} color="var(--gold)" style={{ flexShrink:0 }}/>
@@ -1527,21 +1562,21 @@ export default function App() {
 
             {/* Research Rabbit Hole */}
             <button onClick={() => setShowRabbitHole(true)}
-              style={{ padding:"16px 20px",background:"linear-gradient(135deg,rgba(167,139,250,0.08),rgba(96,165,250,0.02))",border:"1px solid rgba(167,139,250,0.2)",borderRadius:"14px",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"space-between",transition:"all 0.2s",gap:"12px",textAlign:"left" }}
+              style={{ padding:"12px 14px",background:"linear-gradient(135deg,rgba(167,139,250,0.08),rgba(96,165,250,0.02))",border:"1px solid rgba(167,139,250,0.2)",borderRadius:"14px",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"space-between",transition:"all 0.2s",gap:"8px",textAlign:"left",overflow:"hidden" }}
               onMouseEnter={e=>{e.currentTarget.style.borderColor="rgba(167,139,250,0.45)";e.currentTarget.style.background="linear-gradient(135deg,rgba(167,139,250,0.13),rgba(96,165,250,0.04))";}}
               onMouseLeave={e=>{e.currentTarget.style.borderColor="rgba(167,139,250,0.2)";e.currentTarget.style.background="linear-gradient(135deg,rgba(167,139,250,0.08),rgba(96,165,250,0.02))";}}>
-              <div style={{ display:"flex",alignItems:"center",gap:"12px" }}>
-                <div style={{ width:"38px",height:"38px",background:"linear-gradient(135deg,rgba(167,139,250,0.2),rgba(96,165,250,0.05))",border:"1px solid rgba(167,139,250,0.3)",borderRadius:"10px",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,position:"relative" }}>
-                  <Network size={18} color="#a78bfa"/>
-                  <div style={{ position:"absolute",top:"-4px",right:"-4px",width:"14px",height:"14px",background:"linear-gradient(135deg,#f0a500,#ffcc55)",borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"7px" }}>🐇</div>
+              <div style={{ display:"flex",alignItems:"center",gap:"8px",minWidth:0,flex:1,overflow:"hidden" }}>
+                <div style={{ width:"32px",height:"32px",background:"linear-gradient(135deg,rgba(167,139,250,0.2),rgba(96,165,250,0.05))",border:"1px solid rgba(167,139,250,0.3)",borderRadius:"8px",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,position:"relative" }}>
+                  <Network size={15} color="#a78bfa"/>
+                  <div style={{ position:"absolute",top:"-3px",right:"-3px",width:"12px",height:"12px",background:"linear-gradient(135deg,#f0a500,#ffcc55)",borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"6px" }}>🐇</div>
                 </div>
-                <div>
-                  <p style={{ color:"#a78bfa",fontSize:"13px",fontWeight:700,marginBottom:"2px" }}>Research Rabbit Hole</p>
-                  <p style={{ color:"var(--text-muted)",fontSize:"11px",fontFamily:"'JetBrains Mono'" }}>Interactive knowledge graph</p>
+                <div style={{ minWidth:0 }}>
+                  <p style={{ color:"#a78bfa",fontSize:"13px",fontWeight:700,marginBottom:"2px",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis" }}>Research Rabbit Hole</p>
+                  <p style={{ color:"var(--text-muted)",fontSize:"11px",fontFamily:"'JetBrains Mono'",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis" }}>Interactive knowledge graph</p>
                 </div>
               </div>
               <div style={{ display:"flex",alignItems:"center",gap:"6px",flexShrink:0 }}>
-                <span style={{ padding:"2px 7px",background:"rgba(167,139,250,0.12)",border:"1px solid rgba(167,139,250,0.25)",borderRadius:"20px",color:"#a78bfa",fontSize:"9px",fontFamily:"'JetBrains Mono'" }}>NEW</span>
+                <span style={{ padding:"2px 6px",background:"rgba(167,139,250,0.12)",border:"1px solid rgba(167,139,250,0.25)",borderRadius:"20px",color:"#a78bfa",fontSize:"9px",fontFamily:"'JetBrains Mono'",flexShrink:0 }}>NEW</span>
                 <ChevronRight size={14} color="#a78bfa"/>
               </div>
             </button>
@@ -1565,18 +1600,31 @@ export default function App() {
                     );
                   })}
                 </div>
-                <div className="search-row">
-                  <div className="search-input-wrap">
-                    <span className="search-input-icon"><Search size={16}/></span>
-                    <input className="search-input" value={ingestQuery} onChange={e=>setIngestQuery(e.target.value)} onKeyDown={e=>e.key==="Enter"&&handleIngest()} placeholder={`Search ${activeSource?.label}...`} disabled={isIngesting}/>
+                <div style={{display:"flex",flexDirection:"column",gap:"8px",marginBottom:"16px"}}>
+                  <div style={{position:"relative",width:"100%"}}>
+                    <span style={{position:"absolute",left:"14px",top:"50%",transform:"translateY(-50%)",color:"var(--text-muted)",pointerEvents:"none",display:"flex"}}><Search size={16}/></span>
+                    <input
+                      value={ingestQuery}
+                      onChange={e=>setIngestQuery(e.target.value)}
+                      onKeyDown={e=>e.key==="Enter"&&handleIngest()}
+                      placeholder={`Search ${activeSource?.label}...`}
+                      disabled={isIngesting}
+                      style={{width:"100%",padding:"13px 16px 13px 42px",background:"var(--bg-secondary)",border:"1px solid var(--border)",borderRadius:"10px",color:"var(--text-primary)",fontSize:"14px",fontFamily:"'DM Sans',sans-serif",outline:"none",boxSizing:"border-box"}}
+                      onFocus={e=>e.target.style.borderColor="rgba(240,165,0,0.5)"}
+                      onBlur={e=>e.target.style.borderColor="var(--border)"}
+                    />
                   </div>
-                  <select className="count-select" value={maxResults} onChange={e=>setMaxResults(Number(e.target.value))} disabled={isIngesting}>
-                    {[2,3,5,8,10].map(n=><option key={n} value={n}>{n} papers</option>)}
-                  </select>
-                  <button className="action-btn" onClick={handleIngest} disabled={isIngesting||!ingestQuery.trim()} style={{ background:isIngesting?"var(--bg-hover)":"linear-gradient(135deg,var(--gold),var(--gold-dim))",color:isIngesting?"var(--text-muted)":"#0a0b0f",cursor:isIngesting?"not-allowed":"pointer" }}>
-                    {isIngesting?<Loader2 size={15} style={{ animation:"spin 1s linear infinite" }}/>:<Search size={15}/>}
-                    {isIngesting?"Processing...":"Ingest"}
-                  </button>
+                  <div style={{display:"flex",gap:"8px"}}>
+                    <select value={maxResults} onChange={e=>setMaxResults(Number(e.target.value))} disabled={isIngesting}
+                      style={{flex:"0 0 auto",padding:"12px 14px",background:"var(--bg-secondary)",border:"1px solid var(--border)",borderRadius:"10px",color:"var(--text-secondary)",fontSize:"14px",fontFamily:"'JetBrains Mono',monospace",outline:"none",cursor:"pointer"}}>
+                      {[2,3,5,8,10].map(n=><option key={n} value={n}>{n} papers</option>)}
+                    </select>
+                    <button onClick={handleIngest} disabled={isIngesting||!ingestQuery.trim()}
+                      style={{flex:1,padding:"12px 20px",border:"none",borderRadius:"10px",fontSize:"14px",fontWeight:600,fontFamily:"'DM Sans',sans-serif",cursor:isIngesting||!ingestQuery.trim()?"not-allowed":"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:"8px",background:isIngesting?"var(--bg-hover)":"linear-gradient(135deg,var(--gold),var(--gold-dim))",color:isIngesting?"var(--text-muted)":"#0a0b0f"}}>
+                      {isIngesting?<Loader2 size={15} style={{animation:"spin 1s linear infinite"}}/>:<Search size={15}/>}
+                      {isIngesting?"Processing...":"Ingest"}
+                    </button>
+                  </div>
                 </div>
                 {(isIngesting||ingestDone||ingestError)&&progressLogs.length>0&&<ProgressBar progress={progress} logs={progressLogs} isDone={ingestDone} isError={ingestError}/>}
                 {error&&!ingestError&&<div className="error-row"><AlertCircle size={14}/>{error}</div>}
