@@ -929,6 +929,8 @@ function RabbitHolePage({ stats, indexedPapers, onClose }) {
             </p>
           </div>
 
+          <FeatureTip featureId="rabbithole"/>
+
           {/* Legend preview */}
           <div style={{ display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:"10px",marginBottom:"40px" }}>
             {Object.entries(NODE_CONFIG).map(([key,cfg]) => (
@@ -1173,6 +1175,240 @@ function RabbitHolePage({ stats, indexedPapers, onClose }) {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+
+// ═══════════════════════════════════════════════════════════
+// ─── FEATURE TIP COMPONENT ───
+// ═══════════════════════════════════════════════════════════
+const FEATURE_TIPS = {
+  ingest: {
+    emoji: "📥", color: "#f0a500",
+    title: "How to Search & Ingest Papers",
+    what: "This is your starting point. ResearchMind pulls real papers from academic databases and indexes them so you can ask questions, generate reviews, and more.",
+    steps: [
+      "Pick a source — ArXiv for CS/AI, PubMed for medical, Semantic Scholar for everything",
+      "Type a research topic (e.g. 'transformer attention', 'CRISPR gene editing')",
+      "Choose how many papers to fetch (3–5 is a good start)",
+      "Hit Ingest — each paper gets downloaded, chunked, and embedded",
+      "Once done, switch to the Ask tab and start asking questions",
+    ],
+    tip: "More papers = richer answers. Index 5–10 papers on the same topic for best results.",
+  },
+  upload: {
+    emoji: "📄", color: "#a78bfa",
+    title: "How to Upload Your Own PDF",
+    what: "Already have a paper? Upload it directly. Great for papers behind paywalls, your own drafts, or anything not on ArXiv.",
+    steps: [
+      "Drag and drop your PDF onto the upload zone (or click to browse)",
+      "Add an optional title and author name",
+      "Hit 'Index This Paper' — it extracts text and embeds it",
+      "Your paper is now searchable in the Ask tab alongside any other indexed papers",
+    ],
+    tip: "Works best with text-based PDFs. Scanned image PDFs may not extract well.",
+  },
+  ask: {
+    emoji: "💬", color: "#60a5fa",
+    title: "How to Ask Questions",
+    what: "Chat with your indexed papers. ResearchMind finds the most relevant sections and generates a grounded, cited answer — no hallucinations.",
+    steps: [
+      "Index at least one paper first (Search Papers or Upload PDF tab)",
+      "Type any question about your papers — comparisons, summaries, methods, findings",
+      "Every answer includes citations linking back to the source paper",
+      "The confidence score (🟢🟡🔴) shows how well the answer is grounded in your papers",
+      "Use the 🎤 mic button to ask questions by voice",
+    ],
+    tip: "Ask specific questions like 'What dataset did paper X use?' rather than 'Tell me about AI' for sharper answers.",
+  },
+  battle: {
+    emoji: "⚔️", color: "#f0a500",
+    title: "How to Run a Paper Battle",
+    what: "Pick any two indexed papers and watch AI debate them head-to-head — methodology, novelty, impact, and a final verdict.",
+    steps: [
+      "Index at least 2 papers first",
+      "Select Paper 1 and Paper 2 from the dropdowns",
+      "Hit 'Start Battle' — AI analyzes both papers across 3 dimensions",
+      "See who wins on Methodology, Novelty, and Real-World Impact",
+      "Read the final verdict explaining which paper is stronger overall",
+    ],
+    tip: "Most interesting when comparing papers that tackle the same problem with different approaches.",
+  },
+  litreview: {
+    emoji: "📚", color: "#a78bfa",
+    title: "How to Generate a Literature Review",
+    what: "Turn your indexed papers into a complete, structured literature review in seconds. Customize the style, word count, and sections.",
+    steps: [
+      "Index at least 2–3 papers on the same research topic",
+      "Choose a writing style: Thesis (formal), Journal (concise), or Summary (accessible)",
+      "Set your target word count with the slider",
+      "Select which sections to include (intro, methodology, gaps, etc.)",
+      "Hit Generate — get a full review with citations in (Author, Year) format",
+    ],
+    tip: "For a thesis chapter, use Thesis style at 1500–2000 words. For a conference abstract, use Journal at 500 words.",
+  },
+  gaps: {
+    emoji: "🔍", color: "#fb923c",
+    title: "How to Find Research Gaps",
+    what: "AI analyzes your indexed papers and identifies what's missing — critical gaps, understudied areas, contradictions between papers, and future research directions.",
+    steps: [
+      "Index at least 2 papers on your research topic",
+      "Hit 'Find Research Gaps'",
+      "Review Critical Gaps (major missing research) and Partial Gaps (understudied areas)",
+      "Check the Contradictions section — disagreements between papers often signal a research opportunity",
+      "Use 'Most Promising Gap' as a starting point for your own research question",
+    ],
+    tip: "Index 5+ papers for a richer gap analysis. More papers = more intersections = more gaps discovered.",
+  },
+  digest: {
+    emoji: "📬", color: "#6366f1",
+    title: "How to Set Up Your Weekly Digest",
+    what: "Every Monday morning, get the 5 most important new papers on your topic delivered to your inbox — with AI-written summaries.",
+    steps: [
+      "Enter your name and email address",
+      "Type your research topic (e.g. 'Large Language Models', 'CRISPR', 'Reinforcement Learning')",
+      "Hit Subscribe — you'll get a confirmation email instantly",
+      "Every Monday: 5 curated papers with summaries land in your inbox",
+      "Unsubscribe anytime via the link in any digest email",
+    ],
+    tip: "Be specific with your topic. 'RAG systems' gives better results than 'AI'.",
+  },
+  supervisor: {
+    emoji: "👨‍🏫", color: "#f0a500",
+    title: "How to Use the AI Research Supervisor",
+    what: "Think of this as having a world-class academic supervisor available 24/7 — one who has read all your indexed papers and can give you the kind of critical, specific feedback that usually takes months of emails and office hours to get.",
+    steps: [
+      "Index your research papers first — the supervisor reads them before speaking to you",
+      "Choose a supervisor personality that matches what you need right now: Supportive if you need confidence, Strict if you want brutal honesty, Focused if your methodology is shaky, or Interdisciplinary if you're stuck in a silo",
+      "Enter your research question so the supervisor understands your goal — e.g. 'How does RAG improve factual grounding in LLMs?'",
+      "Optionally upload your draft thesis or paper — the supervisor will read it and give specific feedback on your writing",
+      "Hit Start Session — the supervisor opens with a full analysis of your research position, weaknesses, strengths, and top 3 actions",
+      "Continue the conversation: ask follow-up questions, challenge the feedback, ask for clarification on any point",
+      "Use the Quick Questions panel on the left to explore common research concerns without typing",
+      "Switch supervisor modes mid-session if you want a different perspective on the same question",
+    ],
+    tip: "The Strict mode is uncomfortable but the most valuable — it tells you what your actual supervisor might be thinking but not saying. Use it before your next meeting.",
+    extra: [
+      { label: "🤝 Supportive", desc: "Warm and encouraging. Best when you feel stuck or demotivated. Will highlight what's working before addressing problems." },
+      { label: "⚡ Strict", desc: "Direct and unfiltered. Treats you like a PhD student who needs to be challenged. Will call out weak arguments immediately." },
+      { label: "🎯 Focused", desc: "Methodology-only mode. Ignores everything except your research design, sampling, analysis, and validity. For when your methods feel shaky." },
+      { label: "🌍 Interdisciplinary", desc: "Connects your work to adjacent fields you may not have considered. Best for finding novel angles and avoiding tunnel vision." },
+    ],
+  },
+  rabbithole: {
+    emoji: "🐇", color: "#a78bfa",
+    title: "How to Use Research Rabbit Hole",
+    what: "Every research paper exists inside a web of intellectual relationships — papers that inspired it, papers it contradicts, papers using the same methods. Normally it takes weeks of reading to map this web. Rabbit Hole does it in 10 seconds as a visual, interactive graph.",
+    steps: [
+      "Index at least 3–5 papers first — the more papers indexed, the richer the graph",
+      "Select your seed paper — this becomes the gold star at the center of the graph",
+      "Hit 'Build Rabbit Hole Graph' — AI analyzes every other indexed paper and classifies its relationship to your seed",
+      "The graph renders with color-coded nodes: purple = builds on, red = contradicts, blue = same method, green = related",
+      "Click any node to open the details panel — see the paper title, why it's connected, connection strength, and a link to read the full paper",
+      "Click 'Expand This Node' on any paper to discover second-degree connections — papers connected to that paper, not just the seed",
+      "Drag nodes to rearrange the graph, scroll to zoom in/out, pinch on mobile",
+      "Hit Export to save the graph as an SVG file you can drop into your thesis or presentation",
+    ],
+    tip: "The red 'Contradicts' nodes are the most valuable — they show you where the literature disagrees, which is exactly where research opportunities live.",
+    extra: [
+      { label: "⭐ Seed Paper", desc: "Your chosen starting point. Gold node at the center. Everything connects back to this." },
+      { label: "🔼 Builds On", desc: "Papers that directly extend, improve, or depend on the seed paper's methods or findings. Shows the intellectual lineage." },
+      { label: "⚡ Contradicts", desc: "Papers with opposing findings, competing approaches, or results that challenge the seed paper. High-value nodes for research gaps." },
+      { label: "🔬 Same Method", desc: "Papers using the same experimental setup, dataset, benchmark, or technique — even if applied to different problems." },
+      { label: "🔗 Related", desc: "Papers in the same broad research domain. Less direct than the others but useful for understanding the field context." },
+    ],
+  },
+};
+
+function FeatureTip({ featureId }) {
+  const tip = FEATURE_TIPS[featureId];
+  const storageKey = `rm_tip_dismissed_${featureId}`;
+  const [dismissed, setDismissed] = useState(() => {
+    try { return localStorage.getItem(storageKey) === "1"; } catch { return false; }
+  });
+  const [visible, setVisible] = useState(!dismissed);
+
+  function dismiss() {
+    setVisible(false);
+    setDismissed(true);
+    try { localStorage.setItem(storageKey, "1"); } catch {}
+  }
+
+  function reopen() { setVisible(true); }
+
+  if (!tip) return null;
+
+  return (
+    <div style={{ marginBottom:"20px" }}>
+      {!visible ? (
+        // Collapsed — just a small pill to re-open
+        <button onClick={reopen}
+          style={{ display:"inline-flex",alignItems:"center",gap:"6px",padding:"5px 12px",background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.08)",borderRadius:"20px",cursor:"pointer",color:"rgba(255,255,255,0.35)",fontSize:"11px",fontFamily:"'JetBrains Mono'",transition:"all 0.2s" }}
+          onMouseEnter={e=>{e.currentTarget.style.borderColor=tip.color+"50";e.currentTarget.style.color=tip.color;}}
+          onMouseLeave={e=>{e.currentTarget.style.borderColor="rgba(255,255,255,0.08)";e.currentTarget.style.color="rgba(255,255,255,0.35)";}}>
+          <span style={{fontSize:"12px"}}>{tip.emoji}</span> How to use this feature
+        </button>
+      ) : (
+        // Expanded tip card
+        <div style={{ background:`${tip.color}08`,border:`1px solid ${tip.color}25`,borderRadius:"14px",padding:"20px 22px",animation:"fadeSlideIn 0.3s ease both",position:"relative" }}>
+          {/* Header */}
+          <div style={{ display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:"12px",marginBottom:"14px" }}>
+            <div style={{ display:"flex",alignItems:"center",gap:"10px" }}>
+              <div style={{ width:"36px",height:"36px",flexShrink:0,background:`${tip.color}15`,border:`1px solid ${tip.color}30`,borderRadius:"10px",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"17px" }}>{tip.emoji}</div>
+              <div>
+                <p style={{ color:tip.color,fontSize:"13px",fontWeight:700,fontFamily:"'DM Sans'" }}>{tip.title}</p>
+                <p style={{ color:"rgba(255,255,255,0.4)",fontSize:"10px",fontFamily:"'JetBrains Mono'",marginTop:"2px" }}>First time here? Here's how it works</p>
+              </div>
+            </div>
+            <button onClick={dismiss} style={{ background:"none",border:"none",cursor:"pointer",color:"rgba(255,255,255,0.25)",padding:"4px",flexShrink:0,lineHeight:1 }}
+              onMouseEnter={e=>e.currentTarget.style.color="#fff"} onMouseLeave={e=>e.currentTarget.style.color="rgba(255,255,255,0.25)"}>
+              <X size={14}/>
+            </button>
+          </div>
+
+          {/* What it does */}
+          <p style={{ color:"rgba(255,255,255,0.6)",fontSize:"13px",fontFamily:"'DM Sans'",lineHeight:1.7,marginBottom:"14px",paddingLeft:"46px" }}>{tip.what}</p>
+
+          {/* Steps */}
+          <div style={{ display:"flex",flexDirection:"column",gap:"6px",marginBottom:"14px",paddingLeft:"46px" }}>
+            {tip.steps.map((step, i) => (
+              <div key={i} style={{ display:"flex",alignItems:"flex-start",gap:"10px" }}>
+                <span style={{ width:"18px",height:"18px",flexShrink:0,background:`${tip.color}20`,border:`1px solid ${tip.color}35`,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"9px",color:tip.color,fontFamily:"'JetBrains Mono'",fontWeight:700,marginTop:"1px" }}>{i+1}</span>
+                <p style={{ color:"rgba(255,255,255,0.55)",fontSize:"12px",fontFamily:"'DM Sans'",lineHeight:1.6 }}>{step}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Pro tip */}
+          <div style={{ display:"flex",alignItems:"flex-start",gap:"8px",background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.07)",borderRadius:"8px",padding:"10px 12px",marginLeft:"46px" }}>
+            <span style={{ fontSize:"13px",flexShrink:0 }}>💡</span>
+            <p style={{ color:"rgba(255,255,255,0.4)",fontSize:"11px",fontFamily:"'DM Sans'",lineHeight:1.6 }}><strong style={{color:"rgba(255,255,255,0.55)"}}>Pro tip:</strong> {tip.tip}</p>
+          </div>
+
+          {/* Extra breakdown cards — for Supervisor and Rabbit Hole */}
+          {tip.extra && (
+            <div style={{ marginLeft:"46px",marginTop:"12px",display:"flex",flexDirection:"column",gap:"6px" }}>
+              <p style={{ color:"rgba(255,255,255,0.25)",fontSize:"10px",fontFamily:"'JetBrains Mono'",letterSpacing:"0.08em",marginBottom:"4px" }}>MODES / NODE TYPES</p>
+              {tip.extra.map((item, i) => (
+                <div key={i} style={{ display:"flex",alignItems:"flex-start",gap:"10px",background:"rgba(255,255,255,0.02)",border:"1px solid rgba(255,255,255,0.06)",borderRadius:"8px",padding:"9px 12px" }}>
+                  <span style={{ color:tip.color,fontSize:"12px",fontFamily:"'DM Sans'",fontWeight:700,flexShrink:0,minWidth:"120px" }}>{item.label}</span>
+                  <p style={{ color:"rgba(255,255,255,0.4)",fontSize:"11px",fontFamily:"'DM Sans'",lineHeight:1.6 }}>{item.desc}</p>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Dismiss */}
+          <div style={{ textAlign:"right",marginTop:"12px" }}>
+            <button onClick={dismiss}
+              style={{ padding:"5px 14px",background:"transparent",border:`1px solid ${tip.color}30`,borderRadius:"20px",color:tip.color,fontSize:"11px",fontFamily:"'JetBrains Mono'",cursor:"pointer",opacity:0.7,transition:"opacity 0.2s" }}
+              onMouseEnter={e=>e.currentTarget.style.opacity="1"} onMouseLeave={e=>e.currentTarget.style.opacity="0.7"}>
+              Got it, don't show again
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1585,6 +1821,7 @@ export default function App() {
           {/* Tab content */}
           {tab === "ingest" && (
             <div style={{ animation:"fadeSlideIn 0.3s ease both" }}>
+              <FeatureTip featureId="ingest"/>
               <div className="panel-card">
                 <h2 className="panel-title">Search & Ingest Papers</h2>
                 <p className="panel-subtitle">Choose your source, search for papers, and index them for Q&A</p>
@@ -1647,14 +1884,15 @@ export default function App() {
             </div>
           )}
 
-          {tab === "upload"    && <UploadTab onPaperIndexed={handlePaperIndexed} setStats={setStats}/>}
-          {tab === "battle"    && <BattleTab indexedPapers={papers}/>}
-          {tab === "litreview" && <LitReviewTab stats={stats}/>}
-          {tab === "gaps"      && <ResearchGapsTab stats={stats}/>}
-          {tab === "digest"    && <DigestTab/>}
+          {tab === "upload" && <div style={{animation:"fadeSlideIn 0.3s ease both"}}><FeatureTip featureId="upload"/><UploadTab onPaperIndexed={handlePaperIndexed} setStats={setStats}/></div>}
+          {tab === "battle" && <div style={{animation:"fadeSlideIn 0.3s ease both"}}><FeatureTip featureId="battle"/><BattleTab indexedPapers={papers}/></div>}
+          {tab === "litreview" && <div style={{animation:"fadeSlideIn 0.3s ease both"}}><FeatureTip featureId="litreview"/><LitReviewTab stats={stats}/></div>}
+          {tab === "gaps" && <div style={{animation:"fadeSlideIn 0.3s ease both"}}><FeatureTip featureId="gaps"/><ResearchGapsTab stats={stats}/></div>}
+          {tab === "digest" && <div style={{animation:"fadeSlideIn 0.3s ease both"}}><FeatureTip featureId="digest"/><DigestTab/></div>}
 
           {tab === "ask" && (
             <div style={{ animation:"fadeSlideIn 0.3s ease both" }}>
+              <FeatureTip featureId="ask"/>
               <div className="chat-container">
                 <div className="chat-header">
                   <div style={{ display:"flex",alignItems:"center",gap:"10px" }}>
@@ -1850,6 +2088,8 @@ function SupervisorPage({ stats, onClose }) {
             <h1 style={{ fontFamily:"'Playfair Display',serif",fontSize:isMobile?"28px":"36px",fontWeight:700,color:"#fff",marginBottom:"10px" }}>Meet Your AI Supervisor</h1>
             <p style={{ color:"rgba(255,255,255,0.45)",fontSize:"14px",lineHeight:1.7,maxWidth:"420px",margin:"0 auto" }}>Get the honest, specific feedback that takes PhD students months to find.</p>
           </div>
+          <FeatureTip featureId="supervisor"/>
+
           <div style={{ marginBottom:"36px" }}>
             <div style={{ display:"flex",alignItems:"center",gap:"10px",marginBottom:"14px" }}>
               <span style={{ width:"24px",height:"24px",background:"rgba(240,165,0,0.15)",border:"1px solid rgba(240,165,0,0.3)",borderRadius:"6px",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"11px",color:"var(--gold)",fontWeight:700,flexShrink:0 }}>1</span>
