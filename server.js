@@ -66,6 +66,31 @@ async function fetchBySource(query, maxResults, source) {
   }
 }
 
+// Helper to load all indexed papers from vectorStore
+function loadIndexedPapers() {
+  try {
+    const DB_PATH = new URL("./data/vectorStore.json", import.meta.url);
+    const raw = fs.readFileSync(DB_PATH, "utf-8");
+    const db  = JSON.parse(raw);
+    const paperMap = new Map();
+    (db.chunks || []).forEach(chunk => {
+      const id = chunk.metadata?.paperId;
+      if (id && !paperMap.has(id)) {
+        paperMap.set(id, {
+          id,
+          title:     chunk.metadata.title     || "Untitled",
+          authors:   chunk.metadata.authors   || [],
+          published: chunk.metadata.published || "Unknown",
+          abstract:  chunk.metadata.abstract  || "",
+          source:    chunk.metadata.source    || "unknown",
+          pdfUrl:    chunk.metadata.pdfUrl    || null,
+        });
+      }
+    });
+    return Array.from(paperMap.values());
+  } catch { return []; }
+}
+
 // ROUTE 1: Ingest with SSE
 app.get("/api/ingest-progress", async (req, res) => {
   const { query, maxResults = 5, source = "arxiv" } = req.query;
@@ -156,18 +181,14 @@ app.post("/api/upload-pdf", upload.single("pdf"), async (req, res) => {
     if (cleanText.length < 100) return res.status(422).json({ error: "Could not extract text from this PDF." });
     paper.fullText = cleanText;
 
-    // ─── Auto-extract abstract if not manually provided ───
     if (!req.body.abstract) {
       const first2000 = cleanText.slice(0, 2000);
-      // Try to find "Abstract" section header
       const abstractMatch = first2000.match(/abstract[:\s]+([^]+?)(?=introduction|keywords|1\s*\.|background|©|\n\n\n)/i);
       if (abstractMatch && abstractMatch[1]?.trim().length > 50) {
         paper.abstract = abstractMatch[1].replace(/\s+/g, " ").trim().slice(0, 600);
       } else {
-        // Fallback: grab a clean chunk from early in the text (after title area)
         paper.abstract = cleanText.replace(/\s+/g, " ").trim().slice(150, 550);
       }
-      console.log(`   📝 Auto-extracted abstract: "${paper.abstract.slice(0, 80)}..."`);
     }
     const chunks = chunkPaper(paper);
     if (chunks.length === 0) return res.status(422).json({ error: "PDF had no usable text content." });
@@ -207,13 +228,11 @@ app.delete("/api/clear", async (req, res) => {
   catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-// ROUTE 6: ⚔️ Paper vs Paper Battle
+// ROUTE 6: Paper Battle
 app.post("/api/battle", async (req, res) => {
   try {
     const { paper1, paper2 } = req.body;
     if (!paper1 || !paper2) return res.status(400).json({ error: "Both paper1 and paper2 are required" });
-
-    console.log(`\n⚔️  Battle: "${paper1.title?.slice(0,40)}" vs "${paper2.title?.slice(0,40)}"`);
 
     const prompt = `You are an expert academic analyst. Compare these two research papers in a structured debate.
 
@@ -268,131 +287,71 @@ Respond ONLY with valid JSON, no extra text, no markdown fences:
     const raw = response.choices[0].message.content;
     const clean = raw.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
     const battle = JSON.parse(clean);
-
-    console.log(`   ✅ Battle complete! Winner: Paper ${battle.verdict?.winner}`);
     res.json({ success: true, battle });
 
   } catch (error) {
-    console.error("Battle error:", error);
     res.status(500).json({ error: "Battle failed: " + error.message });
   }
 });
 
-// ─── ROUTE 7: 📚 Literature Review Generator ───
+// ROUTE 7: Literature Review
 app.post("/api/literature-review", async (req, res) => {
   try {
     const { wordCount = 1000, style = "thesis", sections = [] } = req.body;
-
-    // Pull all unique papers from the vector store
     const DB_PATH = new URL("./src/database/../../data/vectorStore.json", import.meta.url);
     const raw  = fs.readFileSync(DB_PATH, "utf-8");
     const db   = JSON.parse(raw);
 
     if (!db.chunks || db.chunks.length === 0) {
-      return res.status(404).json({ error: "No papers indexed yet. Please ingest papers first." });
+      return res.status(404).json({ error: "No papers indexed yet." });
     }
 
-    // Deduplicate papers by paperId
     const paperMap = new Map();
     db.chunks.forEach(chunk => {
       const id = chunk.metadata?.paperId;
       if (id && !paperMap.has(id)) {
         paperMap.set(id, {
-          id,
-          title:     chunk.metadata.title     || "Untitled",
-          authors:   chunk.metadata.authors   || "Unknown",
+          id, title: chunk.metadata.title || "Untitled",
+          authors: chunk.metadata.authors || "Unknown",
           published: chunk.metadata.published || "Unknown",
-          abstract:  chunk.metadata.abstract  || "",
-          source:    chunk.metadata.source    || "unknown",
+          abstract: chunk.metadata.abstract || "",
         });
       }
     });
 
     const papers = Array.from(paperMap.values());
+    if (papers.length < 2) return res.status(400).json({ error: "Please index at least 2 papers." });
 
-    if (papers.length < 2) {
-      return res.status(400).json({ error: "Please index at least 2 papers to generate a literature review." });
-    }
+    const styleGuide = { thesis: "formal academic thesis style, third person", journal: "concise journal article style", summary: "clear accessible summary style" }[style] || "formal academic style";
 
-    console.log(`\n📚 Generating literature review for ${papers.length} papers...`);
-    console.log(`   Style: ${style} | Words: ${wordCount} | Sections: ${sections.length}`);
-
-    const styleGuide = {
-      thesis:  "formal academic thesis style, third person, passive voice where appropriate",
-      journal: "concise journal article style, direct and precise",
-      summary: "clear accessible summary style, readable by non-experts",
-    }[style] || "formal academic style";
-
-    const activeSections = sections.length > 0 ? sections : [
-      "introduction",
-      "theoretical_background",
-      "methodology_comparison",
-      "key_findings",
-      "agreements",
-      "contradictions",
-      "research_gaps",
-      "conclusion",
-      "references",
-    ];
-
+    const activeSections = sections.length > 0 ? sections : ["introduction","theoretical_background","methodology_comparison","key_findings","agreements","contradictions","research_gaps","conclusion","references"];
     const sectionInstructions = {
-      introduction:            "1. INTRODUCTION\nOverview of the research area, significance, and scope of this review.",
-      theoretical_background:  "2. THEORETICAL BACKGROUND\nKey concepts, definitions, and foundational theories across the papers.",
-      methodology_comparison:  "3. METHODOLOGY COMPARISON\nCompare research methods in a markdown table with columns: Paper | Approach | Data/Dataset | Key Technique | Results.",
-      key_findings:            "4. KEY FINDINGS\nMost important findings and contributions from the papers collectively.",
-      agreements:              "5. AGREEMENTS IN LITERATURE\nWhere the papers align and reinforce each other.",
-      contradictions:          "6. CONTRADICTIONS & DEBATES\nWhere papers disagree, conflict, or offer competing views.",
-      research_gaps:           "7. RESEARCH GAPS\nWhat remains unstudied or underexplored based on this body of work.",
-      conclusion:              "8. CONCLUSION\nSynthesis of findings and future research directions.",
-      references:              "9. REFERENCES\nAll papers in APA format.",
+      introduction: "1. INTRODUCTION\nOverview of the research area.",
+      theoretical_background: "2. THEORETICAL BACKGROUND\nKey concepts and foundational theories.",
+      methodology_comparison: "3. METHODOLOGY COMPARISON\nMarkdown table: Paper | Approach | Key Technique | Results.",
+      key_findings: "4. KEY FINDINGS\nMost important findings collectively.",
+      agreements: "5. AGREEMENTS IN LITERATURE\nWhere papers align.",
+      contradictions: "6. CONTRADICTIONS & DEBATES\nWhere papers disagree.",
+      research_gaps: "7. RESEARCH GAPS\nWhat remains unstudied.",
+      conclusion: "8. CONCLUSION\nSynthesis and future directions.",
+      references: "9. REFERENCES\nAll papers in APA format.",
     };
 
-    const papersContext = papers.map((p, i) =>
-      `[${i+1}] Title: ${p.title}\n    Authors: ${Array.isArray(p.authors) ? p.authors.join(", ") : p.authors}\n    Year: ${p.published}\n    Abstract: ${p.abstract?.slice(0, 400) || "N/A"}`
-    ).join("\n\n");
-
+    const papersContext = papers.map((p, i) => `[${i+1}] Title: ${p.title}\n    Authors: ${Array.isArray(p.authors) ? p.authors.join(", ") : p.authors}\n    Year: ${p.published}\n    Abstract: ${p.abstract?.slice(0, 400) || "N/A"}`).join("\n\n");
     const selectedSections = activeSections.map(s => sectionInstructions[s]).filter(Boolean).join("\n\n");
 
-    const prompt = `You are an expert academic writer. Write a comprehensive literature review in ${styleGuide}.
-
-Target length: approximately ${wordCount} words.
-
-PAPERS TO REVIEW:
-${papersContext}
-
-Write the literature review with EXACTLY these sections:
-${selectedSections}
-
-Important rules:
-- Cite papers inline as (Author, Year) format
-- In the methodology table use markdown table syntax
-- Be analytical, not just descriptive — compare, contrast, synthesize
-- Identify patterns and themes across papers
-- Write in continuous flowing prose (except the table)
-- APA references at the end must include all ${papers.length} papers
-- Do NOT include any preamble or explanation — start directly with the review`;
+    const prompt = `You are an expert academic writer. Write a comprehensive literature review in ${styleGuide}. Target: ~${wordCount} words.\n\nPAPERS:\n${papersContext}\n\nSections:\n${selectedSections}\n\nRules: cite as (Author, Year), use markdown table for methodology, flowing prose. Start directly.`;
 
     const response = await groq.chat.completions.create({
       model: "llama-3.3-70b-versatile",
       messages: [{ role: "user", content: prompt }],
-      temperature: 0.4,
-      max_tokens: 4000,
+      temperature: 0.4, max_tokens: 4000,
     });
 
     const review = response.choices[0].message.content;
-    console.log(`   ✅ Literature review generated! (~${review.split(" ").length} words)`);
-
-    res.json({
-      success: true,
-      review,
-      paperCount: papers.length,
-      wordCount: review.split(" ").length,
-      papers: papers.map(p => ({ title: p.title, authors: p.authors, published: p.published })),
-    });
-
+    res.json({ success: true, review, paperCount: papers.length, wordCount: review.split(" ").length, papers: papers.map(p => ({ title: p.title, authors: p.authors, published: p.published })) });
   } catch (error) {
-    console.error("Literature review error:", error);
-    res.status(500).json({ error: "Failed to generate literature review: " + error.message });
+    res.status(500).json({ error: "Failed to generate: " + error.message });
   }
 });
 
@@ -401,7 +360,6 @@ import { Resend } from "resend";
 import cron from "node-cron";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
-
 const SUBSCRIBERS_PATH = new URL("./data/subscribers.json", import.meta.url);
 
 function loadSubscribers() {
@@ -420,398 +378,416 @@ function saveSubscribers(data) {
 function buildEmailHTML(name, topic, papers) {
   const paperRows = papers.map((p, i) => `
     <div style="margin-bottom:32px;padding:24px;background:#0f1117;border-radius:12px;border:1px solid #1e2030;">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
-        <span style="background:#f0a500;color:#0a0b0f;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;font-family:monospace;">#${i+1}</span>
-        <span style="color:#6b7280;font-size:11px;font-family:monospace;">${p.source?.toUpperCase() || "ARXIV"} · ${p.published || ""}</span>
-      </div>
-      <h3 style="color:#f0f0f0;font-size:15px;margin:8px 0;line-height:1.5;">${p.title}</h3>
-      <p style="color:#9ca3af;font-size:12px;margin-bottom:12px;font-family:monospace;">${Array.isArray(p.authors) ? p.authors.slice(0,3).join(", ") : p.authors}${p.authors?.length > 3 ? " et al." : ""}</p>
+      <div style="margin-bottom:4px;"><span style="background:#f0a500;color:#0a0b0f;font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;">#${i+1}</span><span style="color:#6b7280;font-size:11px;margin-left:8px;">${p.source?.toUpperCase() || "ARXIV"} · ${p.published || ""}</span></div>
+      <h3 style="color:#f0f0f0;font-size:15px;margin:8px 0;">${p.title}</h3>
+      <p style="color:#9ca3af;font-size:12px;margin-bottom:12px;">${Array.isArray(p.authors) ? p.authors.slice(0,3).join(", ") : p.authors}</p>
       <div style="background:#161b27;border-left:3px solid #f0a500;padding:12px 16px;border-radius:0 8px 8px 0;margin-bottom:12px;">
-        <p style="color:#d1d5db;font-size:13px;line-height:1.7;margin:0;">${p.summary || p.abstract?.slice(0, 300) || "No summary available."}...</p>
+        <p style="color:#d1d5db;font-size:13px;line-height:1.7;margin:0;">${p.summary || p.abstract?.slice(0, 300) || ""}...</p>
       </div>
-      ${p.pdfUrl && p.pdfUrl !== "no-pdf" ? `<a href="${p.pdfUrl}" style="display:inline-flex;align-items:center;gap:6px;color:#f0a500;font-size:12px;text-decoration:none;font-family:monospace;border:1px solid rgba(240,165,0,0.3);padding:6px 14px;border-radius:6px;">Read Paper →</a>` : ""}
-    </div>
-  `).join("");
+      ${p.pdfUrl && p.pdfUrl !== "no-pdf" ? `<a href="${p.pdfUrl}" style="color:#f0a500;font-size:12px;text-decoration:none;border:1px solid rgba(240,165,0,0.3);padding:6px 14px;border-radius:6px;">Read Paper →</a>` : ""}
+    </div>`).join("");
 
-  return `<!DOCTYPE html>
-<html>
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0;padding:0;background:#0a0b0f;font-family:'Segoe UI',Arial,sans-serif;">
+  return `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#0a0b0f;font-family:'Segoe UI',Arial,sans-serif;">
   <div style="max-width:600px;margin:0 auto;padding:32px 16px;">
-
-    <!-- Header -->
-    <div style="text-align:center;margin-bottom:32px;">
-      <div style="display:inline-flex;align-items:center;gap:10px;background:#111318;border:1px solid #1e2030;border-radius:12px;padding:12px 20px;">
-        <span style="font-size:20px;">🧠</span>
-        <span style="color:#f0a500;font-size:18px;font-weight:700;">ResearchMind</span>
-        <span style="color:#6b7280;font-size:12px;font-family:monospace;">Weekly Digest</span>
-      </div>
-    </div>
-
-    <!-- Hero -->
+    <div style="text-align:center;margin-bottom:32px;"><div style="display:inline-block;background:#111318;border:1px solid #1e2030;border-radius:12px;padding:12px 20px;"><span style="color:#f0a500;font-size:18px;font-weight:700;">🧠 ResearchMind</span></div></div>
     <div style="background:linear-gradient(135deg,rgba(240,165,0,0.1),rgba(240,165,0,0.02));border:1px solid rgba(240,165,0,0.2);border-radius:16px;padding:28px;text-align:center;margin-bottom:32px;">
-      <p style="color:#9ca3af;font-size:12px;font-family:monospace;letter-spacing:0.1em;margin-bottom:8px;">WEEKLY RESEARCH DIGEST</p>
-      <h1 style="color:#f0f0f0;font-size:22px;margin:0 0 8px;line-height:1.4;">Hey ${name} 👋</h1>
-      <p style="color:#9ca3af;font-size:14px;margin:0;">Here are the <strong style="color:#f0a500;">5 most important papers</strong> published this week on <strong style="color:#f0f0f0;">${topic}</strong></p>
+      <h1 style="color:#f0f0f0;font-size:22px;margin:0 0 8px;">Hey ${name} 👋</h1>
+      <p style="color:#9ca3af;font-size:14px;margin:0;">5 most important papers this week on <strong style="color:#f0f0f0;">${topic}</strong></p>
     </div>
-
-    <!-- Papers -->
     ${paperRows}
-
-    <!-- CTA -->
-    <div style="text-align:center;margin:32px 0;">
-      <a href="https://researchminds.vercel.app" style="display:inline-block;background:linear-gradient(135deg,#f0a500,#d4920a);color:#0a0b0f;font-weight:700;font-size:14px;padding:14px 32px;border-radius:10px;text-decoration:none;">Open ResearchMind →</a>
-    </div>
-
-    <!-- Footer -->
-    <div style="border-top:1px solid #1e2030;padding-top:20px;text-align:center;">
-      <p style="color:#4b5563;font-size:11px;font-family:monospace;margin:0 0 8px;">You're receiving this because you subscribed to ResearchMind Weekly Digest.</p>
-      <p style="color:#4b5563;font-size:11px;font-family:monospace;margin:0;">researchminds.vercel.app</p>
-    </div>
-  </div>
-</body>
-</html>`;
+    <div style="text-align:center;margin:32px 0;"><a href="https://researchminds.vercel.app" style="background:linear-gradient(135deg,#f0a500,#d4920a);color:#0a0b0f;font-weight:700;font-size:14px;padding:14px 32px;border-radius:10px;text-decoration:none;">Open ResearchMind →</a></div>
+    <p style="color:#4b5563;font-size:11px;text-align:center;">researchminds.vercel.app</p>
+  </div></body></html>`;
 }
 
 async function generateDigestForSubscriber(subscriber) {
   try {
-    const { fetchPapers } = await import("./src/ingestion/arxivFetcher.js");
     const papers = await fetchPapers(subscriber.topic, 5);
     if (!papers || papers.length === 0) return;
-
-    // Generate AI summary for each paper
     const papersWithSummary = await Promise.all(papers.map(async (p) => {
       try {
-        const response = await groq.chat.completions.create({
-          model: "llama-3.3-70b-versatile",
-          messages: [{ role: "user", content: `Summarize this research paper abstract in 2-3 sentences for a weekly digest email. Be concise and highlight the key contribution.\n\nTitle: ${p.title}\nAbstract: ${p.abstract}` }],
-          max_tokens: 150,
-          temperature: 0.3,
-        });
+        const response = await groq.chat.completions.create({ model: "llama-3.3-70b-versatile", messages: [{ role: "user", content: `Summarize in 2-3 sentences:\nTitle: ${p.title}\nAbstract: ${p.abstract}` }], max_tokens: 150, temperature: 0.3 });
         return { ...p, summary: response.choices[0].message.content };
       } catch { return { ...p, summary: p.abstract?.slice(0, 200) }; }
     }));
-
-    const html = buildEmailHTML(subscriber.name, subscriber.topic, papersWithSummary);
-
-    await resend.emails.send({
-      from:    "ResearchMind Digest <onboarding@resend.dev>",
-      to:      subscriber.email,
-      subject: `📚 Your Weekly Digest — ${subscriber.topic}`,
-      html,
-    });
-
-    console.log(`   ✅ Digest sent to ${subscriber.email}`);
-
-    // Update lastSentAt
+    await resend.emails.send({ from: "ResearchMind Digest <onboarding@resend.dev>", to: subscriber.email, subject: `📚 Your Weekly Digest — ${subscriber.topic}`, html: buildEmailHTML(subscriber.name, subscriber.topic, papersWithSummary) });
     const db = loadSubscribers();
     const idx = db.subscribers.findIndex(s => s.id === subscriber.id);
     if (idx >= 0) { db.subscribers[idx].lastSentAt = new Date().toISOString(); saveSubscribers(db); }
-
-  } catch (err) {
-    console.error(`   ❌ Failed to send to ${subscriber.email}:`, err.message);
-  }
+  } catch (err) { console.error(`Failed to send to ${subscriber.email}:`, err.message); }
 }
 
-async function sendWeeklyDigests() {
-  const db = loadSubscribers();
-  const active = db.subscribers.filter(s => s.active);
-  console.log(`\n📬 Sending weekly digest to ${active.length} subscribers...`);
-  for (const sub of active) { await generateDigestForSubscriber(sub); }
-  console.log("   ✅ Weekly digest complete!");
-}
+cron.schedule("0 8 * * 1", () => { generateDigestForSubscriber; });
 
-// ─── CRON: Every Monday at 8:00 AM ───
-cron.schedule("0 8 * * 1", () => {
-  console.log("\n⏰ Monday 8am — Running weekly digest cron...");
-  sendWeeklyDigests();
-});
-
-// ─── ROUTE 11: 👨‍🏫 AI Supervisor — Initial Analysis ───
+// ─── ROUTE 11: Supervisor Analyze ───
 app.post("/api/supervisor/analyze", async (req, res) => {
   try {
     const { mode, researchQuestion, hasDraft, draftName } = req.body;
-    const DB_PATH = new URL("./data/vectorStore.json", import.meta.url);
-    const raw = fs.readFileSync(DB_PATH, "utf-8");
-    const db  = JSON.parse(raw);
-
-    const paperMap = new Map();
-    (db.chunks || []).forEach(chunk => {
-      const id = chunk.metadata?.paperId;
-      if (id && !paperMap.has(id)) paperMap.set(id, {
-        title: chunk.metadata.title || "Untitled",
-        abstract: chunk.metadata.abstract?.slice(0, 200) || "N/A",
-        published: chunk.metadata.published || "Unknown",
-      });
-    });
-    const papers = Array.from(paperMap.values()).slice(0, 10);
+    const papers = loadIndexedPapers().slice(0, 10);
 
     const modePersonas = {
-      supportive: "You are a warm, encouraging academic supervisor. You give honest but kind feedback. Highlight strengths first, then address weaknesses constructively.",
-      strict:     "You are a rigorous, demanding professor with very high standards. Give direct, unfiltered criticism. Be blunt about weaknesses.",
-      focused:    "You are a methodology specialist. Focus ONLY on research design, methodology, validity, and rigor.",
-      interdisciplinary: "You are a broad-thinking academic who connects research across fields. Identify cross-field connections that could strengthen the research.",
+      supportive: "You are a warm, encouraging academic supervisor. Give honest but kind feedback.",
+      strict:     "You are a rigorous, demanding professor. Give direct, unfiltered criticism.",
+      focused:    "You are a methodology specialist. Focus ONLY on research design and rigor.",
+      interdisciplinary: "You are a broad-thinking academic connecting research across fields.",
     };
 
     const contextParts = [
       `The student has indexed ${papers.length} papers:`,
-      papers.map((p, i) => `[${i+1}] "${p.title}" (${p.published}): ${p.abstract}`).join("\n"),
+      papers.map((p, i) => `[${i+1}] "${p.title}" (${p.published}): ${p.abstract?.slice(0,200)}`).join("\n"),
       researchQuestion ? `\nStudent research question: "${researchQuestion}"` : "",
       hasDraft ? `\nStudent uploaded draft: "${draftName}"` : "",
     ].filter(Boolean).join("\n");
 
-    const prompt = `${modePersonas[mode] || modePersonas.supportive}
+    const prompt = `${modePersonas[mode] || modePersonas.supportive}\n\nConduct an initial supervision session.\n${contextParts}\n\nCover:\n1. RESEARCH POSITION\n2. CRITICAL WEAKNESSES\n3. GENUINE STRENGTHS\n4. TOP 3 ACTIONS\n5. SUPERVISOR QUESTIONS\n\nBe specific. Under 500 words.`;
 
-You are conducting an academic supervision session. Context:
-${contextParts}
-
-Give your initial supervision assessment covering:
-1. RESEARCH POSITION — Where does this work sit in the literature?
-2. CRITICAL WEAKNESSES — The 2-3 most important problems right now
-3. GENUINE STRENGTHS — What is actually good or promising
-4. TOP 3 ACTIONS — Specific, concrete next steps
-5. SUPERVISOR QUESTIONS — 2-3 pointed questions for the student to answer
-
-Be specific. Reference actual paper titles. Under 500 words but make every word count.`;
-
-    const response = await groq.chat.completions.create({
-      model: "llama-3.3-70b-versatile",
-      messages: [{ role: "user", content: prompt }],
-      temperature: 0.6,
-      max_tokens: 1000,
-    });
-
+    const response = await groq.chat.completions.create({ model: "llama-3.3-70b-versatile", messages: [{ role: "user", content: prompt }], temperature: 0.6, max_tokens: 1000 });
     res.json({ success: true, analysis: response.choices[0].message.content });
   } catch (error) {
-    console.error("Supervisor analyze error:", error);
     res.status(500).json({ error: "Failed to analyze: " + error.message });
   }
 });
 
-// ─── ROUTE 11b: 👨‍🏫 AI Supervisor — Follow-up Chat ───
+// ─── ROUTE 11b: Supervisor Chat ───
 app.post("/api/supervisor/chat", async (req, res) => {
   try {
     const { message, mode, researchQuestion, history } = req.body;
-
-    const modePersonas = {
-      supportive:        "You are a warm, encouraging academic supervisor. Be honest but kind.",
-      strict:            "You are a rigorous, demanding professor. Be direct and unfiltered.",
-      focused:           "You are a methodology specialist. Focus only on research design.",
-      interdisciplinary: "You are a broad-thinking academic connecting research across fields.",
-    };
-
-    const systemPrompt = `${modePersonas[mode] || modePersonas.supportive}
-You are in an ongoing supervision session${researchQuestion ? ` about: "${researchQuestion}"` : ""}. 
-Respond to the student. Be specific, helpful, and stay in character. Under 300 words.`;
-
-    const messages = [
-      { role: "system", content: systemPrompt },
-      ...(history || []).map(m => ({ role: m.role === "supervisor" ? "assistant" : "user", content: m.content })),
-      { role: "user", content: message },
-    ];
-
-    const response = await groq.chat.completions.create({
-      model: "llama-3.3-70b-versatile",
-      messages,
-      temperature: 0.65,
-      max_tokens: 600,
-    });
-
+    const modePersonas = { supportive: "warm, encouraging academic supervisor", strict: "rigorous, demanding professor", focused: "methodology specialist", interdisciplinary: "broad-thinking academic" };
+    const systemPrompt = `You are a ${modePersonas[mode] || modePersonas.supportive}${researchQuestion ? ` supervising research on: "${researchQuestion}"` : ""}. Be specific and under 300 words.`;
+    const messages = [{ role: "system", content: systemPrompt }, ...(history || []).map(m => ({ role: m.role === "supervisor" ? "assistant" : "user", content: m.content })), { role: "user", content: message }];
+    const response = await groq.chat.completions.create({ model: "llama-3.3-70b-versatile", messages, temperature: 0.65, max_tokens: 600 });
     res.json({ success: true, reply: response.choices[0].message.content });
   } catch (error) {
-    console.error("Supervisor chat error:", error);
     res.status(500).json({ error: "Failed to respond: " + error.message });
   }
 });
 
-// ─── ROUTE 12: 🔍 Research Gap Finder ───
+// ─── ROUTE 12: Research Gap Finder ───
 app.post("/api/research-gaps", async (req, res) => {
   try {
-    const DB_PATH = new URL("./data/vectorStore.json", import.meta.url);
-    const raw  = fs.readFileSync(DB_PATH, "utf-8");
-    const db   = JSON.parse(raw);
+    const papers = loadIndexedPapers().slice(0, 8);
+    if (papers.length < 2) return res.status(400).json({ error: "Please index at least 2 papers." });
 
-    if (!db.chunks || db.chunks.length === 0) {
-      return res.status(404).json({ error: "No papers indexed yet. Please ingest papers first." });
-    }
+    const papersContext = papers.map((p, i) => `[${i+1}] "${p.title}" (${p.published}) — ${p.abstract?.slice(0, 150) || "N/A"}`).join("\n");
 
-    // Deduplicate papers
-    const paperMap = new Map();
-    db.chunks.forEach(chunk => {
-      const id = chunk.metadata?.paperId;
-      if (id && !paperMap.has(id)) {
-        paperMap.set(id, {
-          id,
-          title:     chunk.metadata.title     || "Untitled",
-          authors:   chunk.metadata.authors   || "Unknown",
-          published: chunk.metadata.published || "Unknown",
-          abstract:  chunk.metadata.abstract  || "",
-        });
-      }
-    });
-
-    const papers = Array.from(paperMap.values()).slice(0, 8); // max 8 papers
-    if (papers.length < 2) {
-      return res.status(400).json({ error: "Please index at least 2 papers to find research gaps." });
-    }
-
-    console.log(`\n🔍 Finding research gaps across ${papers.length} papers...`);
-
-    // Very short abstracts to keep prompt small
-    const papersContext = papers.map((p, i) =>
-      `[${i+1}] "${p.title}" (${p.published}) — ${p.abstract?.slice(0, 150) || "N/A"}`
-    ).join("\n");
-
-    const prompt = `Analyze these ${papers.length} research papers and find gaps. Respond ONLY with valid compact JSON on one line, no newlines inside strings, no trailing commas:
+    const prompt = `Analyze these ${papers.length} research papers and find gaps. Respond ONLY with valid compact JSON on one line:
 
 PAPERS:
 ${papersContext}
 
-JSON format (keep each string under 100 chars):
+JSON:
 {"topic":"5 word topic","summary":"one sentence","critical_gaps":[{"title":"gap title","description":"what is missing","papers_that_hint":"[1],[2]"}],"partial_gaps":[{"title":"gap title","description":"understudied area","papers_that_hint":"[1]"}],"contradictions":[{"title":"contradiction topic","paper_a":"paper 1 claims X","paper_b":"paper 2 claims Y","implication":"why it matters"}],"future_directions":[{"title":"direction title","description":"what to explore","novelty":"high"}],"universal_agreements":["agreement 1","agreement 2"],"most_promising_gap":"2 sentence recommendation"}
 
-Rules: max 3 items per array, strings must be short, valid JSON only.`;
+Max 3 items per array, valid JSON only.`;
 
-    const response = await groq.chat.completions.create({
-      model: "llama-3.3-70b-versatile",
-      messages: [{ role: "user", content: prompt }],
-      temperature: 0.2,
-      max_tokens: 3000,
-    });
-
-    const raw2  = response.choices[0].message.content;
-    let clean = raw2.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-
-    // Extract just the JSON object if there's extra text
-    const jsonStart = clean.indexOf("{");
-    const jsonEnd   = clean.lastIndexOf("}");
-    if (jsonStart >= 0 && jsonEnd > jsonStart) {
-      clean = clean.slice(jsonStart, jsonEnd + 1);
-    }
+    const response = await groq.chat.completions.create({ model: "llama-3.3-70b-versatile", messages: [{ role: "user", content: prompt }], temperature: 0.2, max_tokens: 3000 });
+    let clean = response.choices[0].message.content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+    const jsonStart = clean.indexOf("{"), jsonEnd = clean.lastIndexOf("}");
+    if (jsonStart >= 0 && jsonEnd > jsonStart) clean = clean.slice(jsonStart, jsonEnd + 1);
 
     let gaps;
-    try {
-      gaps = JSON.parse(clean);
-    } catch (parseErr) {
-      // Try to repair truncated JSON by closing open structures
-      console.log("   ⚠️  JSON truncated, attempting repair...");
+    try { gaps = JSON.parse(clean); }
+    catch {
       let repaired = clean;
-      // Close any open arrays
-      let openArrays = (repaired.match(/\[/g) || []).length - (repaired.match(/\]/g) || []).length;
+      let openArrays = (repaired.match(/\[/g)||[]).length - (repaired.match(/\]/g)||[]).length;
       for (let i = 0; i < openArrays; i++) repaired += "]";
-      // Close any open objects
-      let openObjects = (repaired.match(/\{/g) || []).length - (repaired.match(/\}/g) || []).length;
+      let openObjects = (repaired.match(/\{/g)||[]).length - (repaired.match(/\}/g)||[]).length;
       for (let i = 0; i < openObjects; i++) repaired += "}";
-      // Remove trailing commas before closing brackets
       repaired = repaired.replace(/,\s*([}\]])/g, "$1");
       gaps = JSON.parse(repaired);
     }
 
-    console.log(`   ✅ Found ${gaps.critical_gaps?.length || 0} critical gaps, ${gaps.partial_gaps?.length || 0} partial gaps`);
     res.json({ success: true, gaps, paperCount: papers.length });
-
   } catch (error) {
-    console.error("Research gaps error:", error);
-    res.status(500).json({ error: "Failed to find research gaps: " + error.message });
+    res.status(500).json({ error: "Failed to find gaps: " + error.message });
   }
 });
 
-
+// ─── ROUTE 13: Digest Subscribe ───
 app.post("/api/digest/subscribe", async (req, res) => {
   try {
     const { name, email, topic } = req.body;
     if (!name || !email || !topic) return res.status(400).json({ error: "Name, email and topic are required." });
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: "Invalid email address." });
-
     const db = loadSubscribers();
     const existing = db.subscribers.find(s => s.email.toLowerCase() === email.toLowerCase());
-
     if (existing) {
       if (existing.active) return res.status(409).json({ error: "This email is already subscribed." });
-      // Reactivate
       existing.active = true; existing.topic = topic; existing.name = name;
       saveSubscribers(db);
-      return res.json({ success: true, message: "Subscription reactivated! You'll get your first digest next Monday." });
+      return res.json({ success: true, message: "Subscription reactivated! First digest arrives next Monday." });
     }
-
-    db.subscribers.push({
-      id:          `sub_${Date.now()}`,
-      name,
-      email,
-      topic,
-      createdAt:   new Date().toISOString(),
-      lastSentAt:  null,
-      active:      true,
-    });
+    db.subscribers.push({ id: `sub_${Date.now()}`, name, email, topic, createdAt: new Date().toISOString(), lastSentAt: null, active: true });
     saveSubscribers(db);
-
-    // Send welcome email
-    await resend.emails.send({
-      from:    "ResearchMind Digest <onboarding@resend.dev>",
-      to:      email,
-      subject: "📚 You're subscribed to ResearchMind Weekly Digest!",
-      html: `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#0a0b0f;font-family:'Segoe UI',Arial,sans-serif;">
-        <div style="max-width:520px;margin:0 auto;padding:40px 16px;text-align:center;">
-          <div style="background:linear-gradient(135deg,rgba(240,165,0,0.1),rgba(240,165,0,0.02));border:1px solid rgba(240,165,0,0.2);border-radius:16px;padding:36px;">
-            <div style="font-size:40px;margin-bottom:16px;">📬</div>
-            <h1 style="color:#f0f0f0;font-size:22px;margin:0 0 12px;">You're in, ${name}!</h1>
-            <p style="color:#9ca3af;font-size:14px;line-height:1.7;margin:0 0 8px;">Every Monday morning you'll receive the <strong style="color:#f0a500;">5 most important papers</strong> on:</p>
-            <div style="background:#111318;border:1px solid rgba(240,165,0,0.3);border-radius:8px;padding:10px 20px;margin:16px 0;">
-              <p style="color:#f0a500;font-size:15px;font-weight:700;margin:0;font-family:monospace;">${topic}</p>
-            </div>
-            <p style="color:#6b7280;font-size:12px;margin:0 0 24px;">Each paper summarized by AI. No noise, just signal.</p>
-            <a href="https://researchminds.vercel.app" style="display:inline-block;background:linear-gradient(135deg,#f0a500,#d4920a);color:#0a0b0f;font-weight:700;font-size:14px;padding:12px 28px;border-radius:10px;text-decoration:none;">Open ResearchMind →</a>
-          </div>
-          <p style="color:#374151;font-size:11px;margin-top:20px;font-family:monospace;">researchminds.vercel.app</p>
-        </div>
-      </body></html>`,
-    });
-
-    console.log(`   ✅ New subscriber: ${email} → "${topic}"`);
-    res.json({ success: true, message: "Subscribed! Check your email for a confirmation. First digest arrives next Monday." });
-
+    await resend.emails.send({ from: "ResearchMind Digest <onboarding@resend.dev>", to: email, subject: "📚 You're subscribed to ResearchMind Weekly Digest!", html: `<div style="font-family:sans-serif;background:#0a0b0f;padding:40px;color:#f0f0f0;"><h1>You're in, ${name}! 📬</h1><p>Every Monday: 5 top papers on <strong style="color:#f0a500;">${topic}</strong></p><a href="https://researchminds.vercel.app" style="color:#f0a500;">Open ResearchMind →</a></div>` });
+    res.json({ success: true, message: "Subscribed! Check your email for confirmation. First digest next Monday." });
   } catch (error) {
-    console.error("Subscribe error:", error);
     res.status(500).json({ error: "Subscription failed: " + error.message });
   }
 });
 
-// ─── ROUTE 9: Unsubscribe ───
 app.get("/api/digest/unsubscribe", async (req, res) => {
   try {
     const { email } = req.query;
     if (!email) return res.status(400).json({ error: "Email required." });
-
     const db = loadSubscribers();
     const sub = db.subscribers.find(s => s.email.toLowerCase() === email.toLowerCase());
     if (!sub) return res.status(404).json({ error: "Email not found." });
-
-    sub.active = false;
-    saveSubscribers(db);
-
-    res.send(`<!DOCTYPE html><html><body style="margin:0;padding:0;background:#0a0b0f;font-family:sans-serif;">
-      <div style="max-width:400px;margin:80px auto;text-align:center;padding:40px;background:#111318;border-radius:16px;border:1px solid #1e2030;">
-        <div style="font-size:36px;margin-bottom:16px;">👋</div>
-        <h2 style="color:#f0f0f0;margin:0 0 8px;">Unsubscribed</h2>
-        <p style="color:#9ca3af;font-size:14px;">You've been removed from ResearchMind Weekly Digest.</p>
-        <a href="https://researchminds.vercel.app" style="display:inline-block;margin-top:20px;color:#f0a500;font-size:13px;">← Back to ResearchMind</a>
-      </div>
-    </body></html>`);
-
-  } catch (error) {
-    res.status(500).send("Unsubscribe failed.");
-  }
+    sub.active = false; saveSubscribers(db);
+    res.send(`<div style="font-family:sans-serif;text-align:center;padding:80px;background:#0a0b0f;color:#f0f0f0;"><h2>Unsubscribed 👋</h2><p style="color:#9ca3af;">Removed from ResearchMind Weekly Digest.</p><a href="https://researchminds.vercel.app" style="color:#f0a500;">← Back</a></div>`);
+  } catch { res.status(500).send("Unsubscribe failed."); }
 });
 
-// ─── ROUTE 10: Send test digest ───
 app.post("/api/digest/test", async (req, res) => {
   try {
     const { email, name, topic } = req.body;
     if (!email || !topic) return res.status(400).json({ error: "Email and topic required." });
     await generateDigestForSubscriber({ id: "test", email, name: name || "Researcher", topic, active: true });
     res.json({ success: true, message: `Test digest sent to ${email}` });
+  } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+// ═══════════════════════════════════════════════════════════
+// ─── ROUTE 14: 🐇 Research Rabbit Hole — Build Graph ───
+// ═══════════════════════════════════════════════════════════
+app.post("/api/rabbit-hole", async (req, res) => {
+  try {
+    const { seedPaperId } = req.body;
+    if (!seedPaperId) return res.status(400).json({ error: "seedPaperId is required" });
+
+    const allPapers = loadIndexedPapers();
+    if (allPapers.length === 0) return res.status(404).json({ error: "No papers indexed yet." });
+
+    const seedPaper = allPapers.find(p => p.id === seedPaperId);
+    if (!seedPaper) return res.status(404).json({ error: "Seed paper not found." });
+
+    const otherPapers = allPapers.filter(p => p.id !== seedPaperId).slice(0, 12);
+
+    console.log(`\n🐇 Building rabbit hole for: "${seedPaper.title?.slice(0,50)}..."`);
+    console.log(`   Analyzing ${otherPapers.length} other papers...`);
+
+    const othersContext = otherPapers.map((p, i) =>
+      `[${i+1}] id:"${p.id}" title:"${p.title}" year:${p.published} abstract:"${p.abstract?.slice(0,200) || "N/A"}"`
+    ).join("\n");
+
+    const prompt = `You are a strict academic graph classifier. Your job is to map precise relationships between research papers.
+
+SEED PAPER:
+id: "${seedPaper.id}"
+title: "${seedPaper.title}"
+year: ${seedPaper.published}
+abstract: "${seedPaper.abstract?.slice(0, 400) || "N/A"}"
+
+OTHER PAPERS TO CLASSIFY:
+${othersContext}
+
+CLASSIFICATION RULES — read carefully before assigning:
+
+"builds_on" → Use this when the paper DIRECTLY extends, improves, or is built upon the seed's specific technique, model, or finding. Must be a clear technical dependency or progression. Example: a paper that fine-tunes the same base model, or proposes an improvement to the exact method used.
+
+"contradicts" → Use this when the paper reports OPPOSING results, challenges the seed's core claims, proposes a competing approach that invalidates the seed's approach, or finds the seed's method fails in certain conditions. Do NOT be shy — if there is any methodological disagreement, mark it contradicts.
+
+"same_method" → Use this when the paper uses the EXACT same technique, benchmark, dataset, or experimental framework as the seed, even if applied to a different problem. Example: both use RLHF, both evaluate on MMLU, both use LoRA fine-tuning.
+
+"related" → LAST RESORT ONLY. Use this only when none of the above apply but the papers share a broad research domain. If you can argue for any other type, use that instead.
+
+IMPORTANT: You MUST use a diverse mix. If you have 10+ papers, you should have at least 2-3 contradicts, 2-3 same_method, 3-4 builds_on, and minimal related. Do NOT default everything to "related" — that is a lazy classification.
+
+Respond ONLY with valid JSON, no markdown:
+{
+  "seed": {
+    "id": "${seedPaper.id}",
+    "title": "${seedPaper.title}",
+    "year": "${seedPaper.published}",
+    "abstract": "${seedPaper.abstract?.slice(0,200).replace(/"/g,"'") || ""}",
+    "keyThemes": ["theme1", "theme2", "theme3"]
+  },
+  "connections": [
+    {
+      "id": "exact_paper_id_from_input",
+      "title": "exact paper title from input",
+      "year": "year",
+      "abstract": "short abstract under 150 chars",
+      "relationship": "builds_on|contradicts|same_method|related",
+      "reason": "One specific sentence citing exactly what makes this relationship — name the technique, finding, or result",
+      "strength": "strong|medium|weak"
+    }
+  ],
+  "graphInsight": "One sentence describing the intellectual landscape around this seed paper"
+}
+
+Include ALL ${otherPapers.length} papers. Use the EXACT id values from the input. Every paper must have an entry.`;
+
+    const response = await groq.chat.completions.create({
+      model: "llama-3.3-70b-versatile",
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.4,
+      max_tokens: 3000,
+    });
+
+    let raw = response.choices[0].message.content;
+    let clean = raw.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+    const jsonStart = clean.indexOf("{"), jsonEnd = clean.lastIndexOf("}");
+    if (jsonStart >= 0 && jsonEnd > jsonStart) clean = clean.slice(jsonStart, jsonEnd + 1);
+
+    let graph;
+    try {
+      graph = JSON.parse(clean);
+    } catch {
+      // Repair truncated JSON
+      let repaired = clean;
+      repaired = repaired.replace(/,\s*$/, "");
+      // Close any open string
+      const quoteCount = (repaired.match(/"/g) || []).length;
+      if (quoteCount % 2 !== 0) repaired += '"';
+      // Close arrays and objects
+      let openArrays = (repaired.match(/\[/g)||[]).length - (repaired.match(/\]/g)||[]).length;
+      for (let i = 0; i < openArrays; i++) repaired += "]";
+      let openObjects = (repaired.match(/\{/g)||[]).length - (repaired.match(/\}/g)||[]).length;
+      for (let i = 0; i < openObjects; i++) repaired += "}";
+      repaired = repaired.replace(/,\s*([}\]])/g, "$1");
+      graph = JSON.parse(repaired);
+    }
+
+    // Enrich connections — always use actual paper data for title/authors/pdfUrl
+    // Never trust Groq for these fields (it hallucinates IDs and titles)
+    if (graph.connections) {
+      graph.connections = graph.connections
+        .map(conn => {
+          let actual = otherPapers.find(p => p.id === conn.id);
+          if (!actual) {
+            actual = otherPapers.find(p =>
+              p.title?.toLowerCase().trim() === conn.title?.toLowerCase().trim()
+            );
+          }
+          if (!actual) return null;
+          return {
+            ...conn,
+            id: actual.id,
+            title: actual.title || conn.title,
+            authors: actual.authors || [],
+            pdfUrl: actual.pdfUrl || null,
+            published: actual.published || conn.year,
+          };
+        })
+        .filter(Boolean);
+    }
+
+    console.log(`   ✅ Graph built: ${graph.connections?.length || 0} connections mapped`);
+    res.json({ success: true, graph });
+
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error("Rabbit hole error:", error);
+    res.status(500).json({ error: "Failed to build graph: " + error.message });
+  }
+});
+
+// ═══════════════════════════════════════════════════════════
+// ─── ROUTE 15: 🐇 Rabbit Hole — Expand Node ───
+// ═══════════════════════════════════════════════════════════
+app.post("/api/rabbit-hole/expand", async (req, res) => {
+  try {
+    const { targetPaperId, seedPaperId, alreadyMapped } = req.body;
+    if (!targetPaperId) return res.status(400).json({ error: "targetPaperId is required" });
+
+    const allPapers = loadIndexedPapers();
+    const targetPaper = allPapers.find(p => p.id === targetPaperId);
+    if (!targetPaper) return res.status(404).json({ error: "Target paper not found." });
+
+    // Papers not yet mapped — exclude seed, target, and already-mapped ones
+    const excludeIds = new Set([seedPaperId, targetPaperId, ...(alreadyMapped || [])]);
+    const candidates = allPapers.filter(p => !excludeIds.has(p.id)).slice(0, 8);
+
+    if (candidates.length === 0) {
+      return res.json({ success: true, newConnections: [], message: "No more papers to expand." });
+    }
+
+    console.log(`\n🐇 Expanding node: "${targetPaper.title?.slice(0,40)}..." → ${candidates.length} candidates`);
+
+    const candidatesContext = candidates.map((p, i) =>
+      `[${i+1}] id:"${p.id}" title:"${p.title}" year:${p.published} abstract:"${p.abstract?.slice(0,150) || "N/A"}"`
+    ).join("\n");
+
+    const prompt = `Map relationships from this FOCUS paper to the candidates.
+
+FOCUS PAPER:
+id: "${targetPaper.id}"
+title: "${targetPaper.title}"
+abstract: "${targetPaper.abstract?.slice(0,300) || "N/A"}"
+
+CANDIDATES:
+${candidatesContext}
+
+Only return papers with "strong" or "medium" relationship. Skip weak ones.
+Respond ONLY with valid JSON:
+{
+  "newConnections": [
+    {
+      "sourceId": "${targetPaper.id}",
+      "id": "candidate_paper_id",
+      "title": "paper title",
+      "year": "year",
+      "abstract": "under 120 chars",
+      "relationship": "builds_on|contradicts|same_method|related",
+      "reason": "One sentence why",
+      "strength": "strong|medium"
+    }
+  ]
+}`;
+
+    const response = await groq.chat.completions.create({
+      model: "llama-3.3-70b-versatile",
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.2,
+      max_tokens: 1500,
+    });
+
+    let raw = response.choices[0].message.content;
+    let clean = raw.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+    const jsonStart = clean.indexOf("{"), jsonEnd = clean.lastIndexOf("}");
+    if (jsonStart >= 0 && jsonEnd > jsonStart) clean = clean.slice(jsonStart, jsonEnd + 1);
+
+    let result;
+    try { result = JSON.parse(clean); }
+    catch {
+      let repaired = clean;
+      let openArrays = (repaired.match(/\[/g)||[]).length - (repaired.match(/\]/g)||[]).length;
+      for (let i = 0; i < openArrays; i++) repaired += "]";
+      let openObjects = (repaired.match(/\{/g)||[]).length - (repaired.match(/\}/g)||[]).length;
+      for (let i = 0; i < openObjects; i++) repaired += "}";
+      repaired = repaired.replace(/,\s*([}\]])/g, "$1");
+      result = JSON.parse(repaired);
+    }
+
+    // Enrich with real paper data — fix IDs and titles Groq may have corrupted
+    if (result.newConnections) {
+      result.newConnections = result.newConnections
+        .map(conn => {
+          let actual = candidates.find(p => p.id === conn.id);
+          if (!actual) {
+            actual = candidates.find(p =>
+              p.title?.toLowerCase().trim() === conn.title?.toLowerCase().trim()
+            );
+          }
+          if (!actual) return null;
+          return {
+            ...conn,
+            id: actual.id,
+            title: actual.title || conn.title,
+            authors: actual.authors || [],
+            pdfUrl: actual.pdfUrl || null,
+            published: actual.published || conn.year,
+          };
+        })
+        .filter(Boolean);
+    }
+
+    console.log(`   ✅ Expand complete: ${result.newConnections?.length || 0} new connections`);
+    res.json({ success: true, newConnections: result.newConnections || [] });
+
+  } catch (error) {
+    console.error("Expand error:", error);
+    res.status(500).json({ error: "Failed to expand: " + error.message });
   }
 });
 
